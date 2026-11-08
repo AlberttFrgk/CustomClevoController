@@ -7,21 +7,27 @@ namespace BSCustomClevoController.Utility
 	// Token: 0x02000006 RID: 6
 	public class InsydeDriver
 	{
+		// Token: 0x0600001C RID: 28
 		[DllImport("InsydeDCHU.dll", EntryPoint = "GetDCHU_Data_Integer")]
 		private static extern int NativeGetDCHU_Data_Integer(int command, ref int data);
 
+		// Token: 0x0600001D RID: 29
 		[DllImport("InsydeDCHU.dll", EntryPoint = "SetDCHU_Data")]
 		private static extern int NativeSetDCHU_Data(int command, byte[] buffer, int length);
 
+		// Token: 0x0600001E RID: 30
 		[DllImport("InsydeDCHU.dll", EntryPoint = "SetDCHU_DataEx")]
 		private static extern int NativeSetDCHU_DataEx(int command, byte[] buffer, int length, ref byte OutputBuffer);
 
+		// Token: 0x0600001F RID: 31
 		[DllImport("InsydeDCHU.dll", EntryPoint = "GetDCHU_Data_Buffer")]
 		private static extern int NativeGetDCHU_Data_Buffer(int command, ref byte buffer);
 
+		// Token: 0x06000020 RID: 32
 		[DllImport("InsydeDCHU.dll", EntryPoint = "ReadAppSettings")]
 		private static extern int NativeReadAppSettings(int page, int offset, int length, ref byte buffer);
 
+		// Token: 0x06000021 RID: 33
 		[DllImport("InsydeDCHU.dll", EntryPoint = "WriteAppSettings")]
 		private static extern int NativeWriteAppSettings(int page, int offset, int length, ref byte buffer);
 

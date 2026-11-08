@@ -6,30 +6,37 @@ using System.Text;
 
 namespace BSCustomClevoController.Utility
 {
+	// Token: 0x02000007 RID: 7
 	public class language
 	{
+		// Token: 0x0600002F RID: 47
 		[DllImport("kernel32", CharSet = CharSet.Unicode)]
 		public static extern int GetPrivateProfileString(string section, string key, string def, StringBuilder retStr, int bufferSize, string filePath);
 
+		// Token: 0x06000030 RID: 48
 		[DllImport("kernel32")]
 		private static extern long WritePrivateProfileString(string section, string key, string val, string filePath);
 
+		// Token: 0x06000031 RID: 49 RVA: 0x000051D4 File Offset: 0x000033D4
 		public language()
 		{
 			this.path = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName) + "\\mtlanguage.ini";
 		}
 
+		// Token: 0x06000032 RID: 50 RVA: 0x00005240 File Offset: 0x00003440
 		public string Translation(string Text)
 		{
 			language.GetPrivateProfileString(this.lang, Text, this.Default, this.outStr, this.Size, this.path);
 			return this.outStr.ToString();
 		}
 
+		// Token: 0x06000033 RID: 51 RVA: 0x00005282 File Offset: 0x00003482
 		public void Load_language()
 		{
 			this.lang = this.Check_language();
 		}
 
+		// Token: 0x06000034 RID: 52 RVA: 0x00005294 File Offset: 0x00003494
 		public string Check_language()
 		{
 			byte[] appdata = Global.insyde.GetAPPData(1, 2, 1);
@@ -182,14 +189,19 @@ namespace BSCustomClevoController.Utility
 			return result;
 		}
 
+		// Token: 0x04000017 RID: 23
 		private string path;
 
+		// Token: 0x04000018 RID: 24
 		private StringBuilder outStr = new StringBuilder(255);
 
+		// Token: 0x04000019 RID: 25
 		private string Default = "null";
 
+		// Token: 0x0400001A RID: 26
 		private int Size = 255;
 
+		// Token: 0x0400001B RID: 27
 		private string lang = "en-US";
 	}
 }
