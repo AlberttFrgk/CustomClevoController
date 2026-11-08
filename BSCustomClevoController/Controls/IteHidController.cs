@@ -1,0 +1,419 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
+using BSCustomClevoController.Utility;
+
+namespace BSCustomClevoController.Controls
+{
+    /// <summary>
+    /// Direct Windows USB HID communication controller for ITE 8291 / 8297 keyboard backlight chips.
+    /// Implements hardware animation packets and multi-directional wave from tuxedo-drivers.
+    /// </summary>
+    public static class IteHidController
+    {
+        private static readonly int[] SupportedVendorIds = new int[]
+        {
+            0x048D, // ITE
+            0x373B  // Kelilu / Clevo MCU
+        };
+
+        private static readonly ushort[] SupportedProductIds = new ushort[]
+        {
+            0x10C9, // Kelilu / Clevo MCU Keyboard
+            0x1107, // Kelilu / Clevo MCU Keyboard alternate
+            0xCE00, // ITE 8291 default Clevo/Uniwill
+            0x6004, // ITE 8291 variant 4
+            0x600A, // ITE 8291 variant A
+            0x600B, // ITE 8291 variant B
+            0x8291, // ITE 8291 alternate PID
+            0x8297, // ITE 8297 alternate PID
+            0x8910, // ITE 8291 Light Bar controller
+            0x6010, // ITE Light Bar variant 6010
+            0x7000, // ITE Light Bar variant 7000
+            0x7001  // ITE Light Bar variant 7001
+        };
+
+        private static readonly ushort[] LightBarProductIds = new ushort[]
+        {
+            0x8910,
+            0x6010,
+            0x7000,
+            0x7001
+        };
+
+        private static bool _devicePresenceChecked = false;
+        private static bool _devicePresent = false;
+        private static bool _lightBarPresent = false;
+        private static ushort _detectedPid = 0;
+        private static string _cachedDevicePath = null;
+        private static string _cachedLightBarPath = null;
+        private static readonly object _lock = new object();
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SP_DEVICE_INTERFACE_DATA
+        {
+            public int cbSize;
+            public Guid interfaceClassGuid;
+            public int flags;
+            public IntPtr reserved;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct HIDD_ATTRIBUTES
+        {
+            public int Size;
+            public ushort VendorID;
+            public ushort ProductID;
+            public ushort VersionNumber;
+        }
+
+        private const uint DIGCF_PRESENT = 0x02;
+        private const uint DIGCF_DEVICEINTERFACE = 0x10;
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint GENERIC_WRITE = 0x40000000;
+        private const uint FILE_SHARE_READ = 0x01;
+        private const uint FILE_SHARE_WRITE = 0x02;
+        private const uint OPEN_EXISTING = 3;
+        private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern void HidD_GetHidGuid(out Guid hidGuid);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern bool HidD_GetAttributes(IntPtr hidDeviceObject, ref HIDD_ATTRIBUTES attributes);
+
+        [DllImport("hid.dll", SetLastError = true)]
+        private static extern bool HidD_SetFeature(IntPtr hidDeviceObject, byte[] lpReportBuffer, int reportBufferLength);
+
+        [DllImport("setupapi.dll", SetLastError = true)]
+        private static extern IntPtr SetupDiGetClassDevs(ref Guid classGuid, IntPtr enumerator, IntPtr hwndParent, uint flags);
+
+        [DllImport("setupapi.dll", SetLastError = true)]
+        private static extern bool SetupDiEnumDeviceInterfaces(IntPtr deviceInfoSet, IntPtr deviceInfoData, ref Guid interfaceClassGuid, uint memberIndex, ref SP_DEVICE_INTERFACE_DATA deviceInterfaceData);
+
+        [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool SetupDiGetDeviceInterfaceDetail(IntPtr deviceInfoSet, ref SP_DEVICE_INTERFACE_DATA deviceInterfaceData, IntPtr deviceInterfaceDetailData, uint deviceInterfaceDetailDataSize, ref uint requiredSize, IntPtr deviceInfoData);
+
+        [DllImport("setupapi.dll", SetLastError = true)]
+        private static extern bool SetupDiDestroyDeviceInfoList(IntPtr deviceInfoSet);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        /// <summary>
+        /// Returns true if an ITE USB HID keyboard controller is detected on this machine.
+        /// </summary>
+        public static bool IsDevicePresent
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (!_devicePresenceChecked)
+                    {
+                        RefreshDevice();
+                    }
+                    return _devicePresent;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns true if an ITE USB HID Light Bar controller is detected on this machine.
+        /// </summary>
+        public static bool IsLightBarPresent
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (!_devicePresenceChecked)
+                    {
+                        RefreshDevice();
+                    }
+                    return _lightBarPresent;
+                }
+            }
+        }
+
+        public static void RefreshDevice()
+        {
+            lock (_lock)
+            {
+                _cachedDevicePath = FindIteDevicePath(out _cachedLightBarPath, out _detectedPid);
+                _devicePresent = !string.IsNullOrEmpty(_cachedDevicePath);
+                _lightBarPresent = !string.IsNullOrEmpty(_cachedLightBarPath);
+                _devicePresenceChecked = true;
+            }
+        }
+
+        private static string FindIteDevicePath(out string lightBarPath, out ushort detectedPid)
+        {
+            lightBarPath = null;
+            detectedPid = 0;
+            string keyboardPath = null;
+
+            Guid hidGuid;
+            HidD_GetHidGuid(out hidGuid);
+
+            IntPtr devInfo = SetupDiGetClassDevs(ref hidGuid, IntPtr.Zero, IntPtr.Zero, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+            if (devInfo == INVALID_HANDLE_VALUE) return null;
+
+            try
+            {
+                SP_DEVICE_INTERFACE_DATA interfaceData = new SP_DEVICE_INTERFACE_DATA();
+                interfaceData.cbSize = Marshal.SizeOf(interfaceData);
+
+                uint index = 0;
+                while (SetupDiEnumDeviceInterfaces(devInfo, IntPtr.Zero, ref hidGuid, index++, ref interfaceData))
+                {
+                    uint requiredSize = 0;
+                    SetupDiGetDeviceInterfaceDetail(devInfo, ref interfaceData, IntPtr.Zero, 0, ref requiredSize, IntPtr.Zero);
+                    if (requiredSize == 0) continue;
+
+                    IntPtr detailBuffer = Marshal.AllocHGlobal((int)requiredSize);
+                    try
+                    {
+                        Marshal.WriteInt32(detailBuffer, IntPtr.Size == 8 ? 8 : 4 + Marshal.SystemDefaultCharSize);
+
+                        if (SetupDiGetDeviceInterfaceDetail(devInfo, ref interfaceData, detailBuffer, requiredSize, ref requiredSize, IntPtr.Zero))
+                        {
+                            IntPtr pDevicePath = new IntPtr(detailBuffer.ToInt64() + 4);
+                            string devicePath = Marshal.PtrToStringAuto(pDevicePath);
+
+                            bool matchesVendor = !string.IsNullOrEmpty(devicePath) &&
+                                (devicePath.IndexOf("vid_048d", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 devicePath.IndexOf("vid_373b", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                            if (matchesVendor)
+                            {
+                                IntPtr handle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+                                if (handle != INVALID_HANDLE_VALUE)
+                                {
+                                    try
+                                    {
+                                        HIDD_ATTRIBUTES attrs = new HIDD_ATTRIBUTES();
+                                        attrs.Size = Marshal.SizeOf(attrs);
+                                        if (HidD_GetAttributes(handle, ref attrs))
+                                        {
+                                            bool isVendorMatch = false;
+                                            foreach (int vid in SupportedVendorIds)
+                                            {
+                                                if (attrs.VendorID == vid)
+                                                {
+                                                    isVendorMatch = true;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (isVendorMatch)
+                                            {
+                                                foreach (ushort pid in LightBarProductIds)
+                                                {
+                                                    if (attrs.ProductID == pid)
+                                                    {
+                                                        lightBarPath = devicePath;
+                                                        detectedPid = pid;
+                                                        break;
+                                                    }
+                                                }
+
+                                                foreach (ushort pid in SupportedProductIds)
+                                                {
+                                                    if (attrs.ProductID == pid && keyboardPath == null)
+                                                    {
+                                                        keyboardPath = devicePath;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        CloseHandle(handle);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(detailBuffer);
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                SetupDiDestroyDeviceInfoList(devInfo);
+            }
+
+            return keyboardPath ?? lightBarPath;
+        }
+
+        private static bool SendCustomFeatureReport(string devicePath, byte[] reportBuffer)
+        {
+            if (string.IsNullOrEmpty(devicePath)) return false;
+
+            IntPtr handle = CreateFile(devicePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+            if (handle == INVALID_HANDLE_VALUE) return false;
+
+            try
+            {
+                return HidD_SetFeature(handle, reportBuffer, reportBuffer.Length);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
+        }
+
+        private static bool SendFeatureReport(byte[] reportBuffer)
+        {
+            if (string.IsNullOrEmpty(_cachedDevicePath))
+            {
+                RefreshDevice();
+                if (string.IsNullOrEmpty(_cachedDevicePath)) return false;
+            }
+
+            return SendCustomFeatureReport(_cachedDevicePath, reportBuffer);
+        }
+
+        /// <summary>
+        /// Sets light bar RGB color and brightness (from tuxedo-drivers ite_8291_lb.c).
+        /// Falls back to Clevo DCHU zone 4 control when direct USB HID is absent.
+        /// </summary>
+        public static bool SetLightBarColor(byte r, byte g, byte b, byte brightness = 100)
+        {
+            if (brightness > 100) brightness = 100;
+
+            if (_lightBarPresent && !string.IsNullOrEmpty(_cachedLightBarPath))
+            {
+                byte[] colorPacket;
+                byte[] ctrlPacket;
+
+                switch (_detectedPid)
+                {
+                    case 0x7000:
+                        colorPacket = new byte[] { 0x14, 0x01, 0x01, r, g, b, 0x00, 0x00 };
+                        ctrlPacket = new byte[] { 0x08, 0x21, 0x01, 0x01, brightness, 0x01, 0x00, 0x00 };
+                        break;
+                    case 0x7001:
+                        colorPacket = new byte[] { 0x14, 0x00, 0x01, r, g, b, 0x00, 0x00 };
+                        ctrlPacket = new byte[] { 0x08, 0x22, 0x01, 0x01, brightness, 0x01, 0x00, 0x00 };
+                        break;
+                    default:
+                        colorPacket = new byte[] { 0x14, 0x00, 0x01, r, g, b, 0x00, 0x00 };
+                        ctrlPacket = new byte[] { 0x08, 0x02, 0x01, 0x01, brightness, 0x08, 0x00, 0x00 };
+                        break;
+                }
+
+                SendCustomFeatureReport(_cachedLightBarPath, colorPacket);
+                return SendCustomFeatureReport(_cachedLightBarPath, ctrlPacket);
+            }
+
+            KeyboardBackLight.SetZoneColourRealtime(3, r, g, b);
+            return true;
+        }
+
+        /// <summary>
+        /// Powers off the chassis light bar.
+        /// </summary>
+        public static bool SetLightBarOff()
+        {
+            if (_lightBarPresent && !string.IsNullOrEmpty(_cachedLightBarPath))
+            {
+                SetLightBarColor(0, 0, 0, 0);
+                byte[] offPacket = new byte[] { 0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+                return SendCustomFeatureReport(_cachedLightBarPath, offPacket);
+            }
+
+            KeyboardBackLight.SetZoneColourRealtime(3, 0, 0, 0);
+            return true;
+        }
+
+        /// <summary>
+        /// Sends a direct ITE 8291 hardware animation control packet.
+        /// Protocol reference: tuxedo-drivers src/ite_8291/ite_8291.c
+        /// Control: 08 [power state] [anim mode] [speed] [brightness] 08 [behaviour] 00
+        /// </summary>
+        public static bool SetHardwareAnimation(byte animMode, byte speed = 0x05, byte brightness = 0x32, byte behaviour = 0x00)
+        {
+            byte[] packet = new byte[]
+            {
+                0x08,       // Report ID
+                0x02,       // Power state: On
+                animMode,   // Animation mode
+                speed,      // Speed (0x01 fast to 0x0A slow)
+                brightness, // Brightness (0x00 - 0x32)
+                0x08,       // Protocol signature
+                behaviour,  // Direction or interactive key mode
+                0x00        // Padding
+            };
+
+            return SendFeatureReport(packet);
+        }
+
+        /// <summary>
+        /// Programs one of the 7 custom palette color slots in the ITE 8291 chip.
+        /// Protocol: 14 00 [slot 1-7] [red] [green] [blue] 00 00
+        /// </summary>
+        public static bool SetCustomColorSlot(byte slot, byte r, byte g, byte b)
+        {
+            if (slot < 1 || slot > 7) return false;
+
+            byte[] packet = new byte[]
+            {
+                0x14, // Report ID
+                0x00,
+                slot, // Color define slot (1-7)
+                r,
+                g,
+                b,
+                0x00,
+                0x00
+            };
+
+            return SendFeatureReport(packet);
+        }
+
+        /// <summary>
+        /// Sets hardware animation on ITE 829x (6-byte protocol with Report ID 0xCC).
+        /// Protocol reference: tuxedo-drivers src/ite_829x/ite_829x.c
+        /// </summary>
+        public static bool Set829xAnimation(byte cmd, byte d0, byte d1, byte d2, byte d3)
+        {
+            byte[] packet = new byte[]
+            {
+                0xCC, // Report ID
+                cmd,
+                d0,
+                d1,
+                d2,
+                d3
+            };
+
+            return SendFeatureReport(packet);
+        }
+
+        /// <summary>
+        /// Powers down the ITE chip hardware backlight.
+        /// </summary>
+        public static bool TurnOff()
+        {
+            byte[] packet = new byte[] { 0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            return SendFeatureReport(packet);
+        }
+    }
+}

@@ -2,50 +2,254 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using BSCustomClevoController.Controls;
 
 namespace BSCustomClevoController.Utility
 {
-    class Capabilities
+    public class CapabilityItem
     {
-        [DllImport("InsydeDCHU.dll")]
-        public static extern int GetDCHU_Data_Integer(int command, ref int data);
+        public string Name { get; set; }
+        public bool IsSupported { get; set; }
+        public string RawKey { get; set; }
 
-        [DllImport("InsydeDCHU.dll")]
-        static extern int WriteAppSettings(int page, int offset, int length, ref byte buffer);
+        public string StatusText => IsSupported ? "Supported" : "Not Supported";
 
-        [DllImport("InsydeDCHU.dll")]
-        static extern int ReadAppSettings(int page, int offset, int length, ref byte buffer);
-
-        public static string[] Check()
+        public override string ToString()
         {
-            Features features = new Features();
-            DoWMIFlag(70, GetWMI(70), ref features);
-            DoWMIFlag(82, GetWMI(82), ref features);
-            DoWMIFlag(122, GetWMI(122), ref features);
-            DoWMIFlag(96, GetWMI(96), ref features);
-            DoWMIFlag(60, GetWMI(60), ref features);
-            DoWMIFlag(16, GetWMI(16), ref features);
+            return $"{Name}: {(IsSupported ? "Supported" : "Not Supported")}";
+        }
+    }
 
-            return GetFeatures(features);
+    public class Capabilities
+    {
+        public static int GetDCHU_Data_Integer(int command, ref int data)
+        {
+            return InsydeDriver.GetDCHU_Data_Integer(command, ref data);
         }
 
-        private static string[] GetFeatures(Features features)
+        public static int SetDCHU_Data(int command, byte[] buffer, int length)
         {
-            List<string> props = new List<string>();
-            var sb = new StringBuilder();
+            return InsydeDriver.SetDCHU_Data(command, buffer, length);
+        }
 
-            foreach (var prop in features.GetType().GetProperties())
+        private static Dictionary<string, bool> _cachedMap;
+
+        public static bool IsSupported(string rawKey)
+        {
+            if (_cachedMap == null)
             {
-                props.Add(prop.Name + ": " + prop.GetValue(features, null));
-                //sb.AppendLine(prop.Name + ": " + prop.GetValue(features, null));
+                var list = Check();
+                _cachedMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in list)
+                {
+                    if (!string.IsNullOrEmpty(item.RawKey))
+                    {
+                        _cachedMap[item.RawKey] = item.IsSupported;
+                    }
+                }
             }
 
-            foreach (var field in features.GetType().GetFields())
+            return _cachedMap.TryGetValue(rawKey, out bool val) && val;
+        }
+
+        public static void InvalidateCache()
+        {
+            _cachedMap = null;
+        }
+
+        public static bool SetWMI(int command, uint data)
+        {
+            try
             {
-                props.Add(field.Name + ": " + field.GetValue(features));
-                //sb.AppendLine(field.Name + ": " + field.GetValue(features));
+                byte[] buffer = BitConverter.GetBytes(data);
+                int res = SetDCHU_Data(command, buffer, 4);
+                return res >= 0;
             }
-            return props.ToArray();
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetKeyboardAnimationSpeed(int speed)
+        {
+            // Clevo DCHU CMD 527 sets keyboard animation speed: 1 (Slow), 2 (Normal), 3 (Fast)
+            try
+            {
+                int val = Math.Max(1, Math.Min(3, speed));
+                return SetWMI(527, (uint)val);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetEnergyStar15C(bool enable)
+        {
+            try
+            {
+                return SetWMI(82, enable ? 2097152u : 0u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetDynamicTuning(bool enable)
+        {
+            try
+            {
+                return SetWMI(96, enable ? 512u : 0u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetWakeOnLan(bool enable)
+        {
+            try
+            {
+                return SetWMI(60, enable ? 32u : 0u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetEthernetLed(bool enable)
+        {
+            try
+            {
+                return SetWMI(122, enable ? 2097152u : 0u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool ResetUsbHub()
+        {
+            try
+            {
+                return SetWMI(122, 256u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool SetGpuMuxMode(bool discreteOnly)
+        {
+            try
+            {
+                // CMD 122 bit 20: 1048576 (0 = MSHybrid, 1 = Discrete Only)
+                return SetWMI(122, discreteOnly ? 1048576u : 0u);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static List<CapabilityItem> Check()
+        {
+            try
+            {
+                Features features = new Features();
+                features.FanExists = true;
+                features.SupportFanOffset = true;
+
+                int cmd16 = GetWMI(16);
+                int cmd60 = GetWMI(60);
+                int cmd82 = GetWMI(82);
+                int cmd96 = GetWMI(96);
+                int cmd122 = GetWMI(122);
+
+                DoWMIFlag(82, cmd82, ref features);
+                DoWMIFlag(122, cmd122, ref features);
+                DoWMIFlag(96, cmd96, ref features);
+                DoWMIFlag(60, cmd60, ref features);
+                DoWMIFlag(16, cmd16, ref features);
+
+                return GetFeatures(features, cmd16, cmd96, cmd122);
+            }
+            catch (Exception ex)
+            {
+                return new List<CapabilityItem>
+                {
+                    new CapabilityItem
+                    {
+                        Name = "Diagnostic Query: Unavailable (" + ex.Message + ")",
+                        IsSupported = false,
+                        RawKey = "Error"
+                    }
+                };
+            }
+        }
+
+        private static List<CapabilityItem> GetFeatures(Features features, int cmd16, int cmd96, int cmd122)
+        {
+            var list = new List<CapabilityItem>();
+
+            // Performance and Power
+            list.Add(new CapabilityItem { Name = "Power Profiles", IsSupported = features.SupportPowerMode, RawKey = "SupportPowerMode" });
+            list.Add(new CapabilityItem { Name = "CPU Overclocking", IsSupported = features.SupportCPUOC, RawKey = "SupportCPUOC" });
+            list.Add(new CapabilityItem { Name = "GPU Overclocking", IsSupported = features.SupportGPUOC || features.SupportGPUOC_WMI == 1, RawKey = "SupportGPUOC" });
+            list.Add(new CapabilityItem { Name = "GPU Overclocking in All Modes", IsSupported = features.SupportAllModeGPUOC, RawKey = "SupportAllModeGPUOC" });
+            list.Add(new CapabilityItem { Name = "Energy Saving Mode", IsSupported = features.SupportEnergySave, RawKey = "SupportEnergySave" });
+            list.Add(new CapabilityItem { Name = "Battery Utility", IsSupported = features.SupportBatteryUtility, RawKey = "SupportBatteryUtility" });
+            list.Add(new CapabilityItem { Name = "Battery Charge Control", IsSupported = features.BatteryChargeControl == 1, RawKey = "BatteryChargeControl" });
+            list.Add(new CapabilityItem { Name = "Energy Star", IsSupported = features.EnergyStar15C == 1, RawKey = "EnergyStar15C" });
+            list.Add(new CapabilityItem { Name = "Hardware P-States", IsSupported = features.SupportHW_P_state, RawKey = "SupportHW_P_state" });
+            list.Add(new CapabilityItem { Name = "Dynamic Tuning", IsSupported = ((cmd96 >> 12) & 1) == 1 || features.SupportDisablePCIE_ASPM, RawKey = "DynamicTuning" });
+
+            // Keyboard and Lighting
+            bool perKey = (cmd16 & 8) == 8;
+            bool rgb = (cmd16 & 16) == 16;
+            list.Add(new CapabilityItem { Name = "RGB Keyboard", IsSupported = rgb, RawKey = "RGBKeyboard" });
+            list.Add(new CapabilityItem { Name = "Per-Key Keyboard", IsSupported = perKey, RawKey = "PerKeyKeyboard" });
+            list.Add(new CapabilityItem { Name = "Keyboard Sleep Timer", IsSupported = features.SupportKBLEDsleep_WMI == 1, RawKey = "SupportKBLEDsleep_WMI" });
+            list.Add(new CapabilityItem { Name = "FlexiKey", IsSupported = features.SupportFlexikey, RawKey = "SupportFlexikey" });
+            list.Add(new CapabilityItem { Name = "FlexiAccess", IsSupported = features.SupportFlexiAccess, RawKey = "SupportFlexiAccess" });
+            list.Add(new CapabilityItem { Name = "Light Bar", IsSupported = features.SupportLightbar, RawKey = "SupportLightbar" });
+            list.Add(new CapabilityItem { Name = "Logo Lighting", IsSupported = features.SupportLogoColor, RawKey = "SupportLogoColor" });
+            list.Add(new CapabilityItem { Name = "Touchpad Lighting", IsSupported = features.SupportTpColor, RawKey = "SupportTpColor" });
+
+            // Cooling and Fans
+            list.Add(new CapabilityItem { Name = "Fan Control", IsSupported = features.FanSpeedSupport || features.SupportFanSpeedSetting, RawKey = "FanSpeedSupport" });
+            list.Add(new CapabilityItem { Name = "Custom Fan Curves", IsSupported = features.CustomFanSupport, RawKey = "CustomFanSupport" });
+            list.Add(new CapabilityItem { Name = "Fan Offset", IsSupported = features.SupportFanOffset, RawKey = "SupportFanOffset" });
+            list.Add(new CapabilityItem { Name = "Dust Cleaning", IsSupported = features.SupportAntiDust_Fan, RawKey = "SupportAntiDust_Fan" });
+            list.Add(new CapabilityItem { Name = "Fanless Mode", IsSupported = features.SupportFanLess, RawKey = "SupportFanLess" });
+            list.Add(new CapabilityItem { Name = "Max-Q Mode", IsSupported = Fan.IsMaxQSupported(), RawKey = "SupportMaxQ" });
+
+            // Platform and System
+            list.Add(new CapabilityItem { Name = "Wake on LAN", IsSupported = features.WakeUpLanSupport, RawKey = "WakeUpLanSupport" });
+            list.Add(new CapabilityItem { Name = "XMP Profiles", IsSupported = features.SupportXMP, RawKey = "SupportXMP" });
+            list.Add(new CapabilityItem { Name = "Hybrid Graphics Switch", IsSupported = features.SupportMSHybrid_dGPUSwicth, RawKey = "SupportMSHybrid_dGPUSwicth" });
+            list.Add(new CapabilityItem { Name = "Ethernet LED", IsSupported = features.SupportEthernetLED, RawKey = "SupportEthernetLED" });
+            list.Add(new CapabilityItem { Name = "3D Headphones", IsSupported = features.Support3dHeadphone || features.SupportWmi3dHp, RawKey = "Support3dHeadphone" });
+            list.Add(new CapabilityItem { Name = "ESS Audio", IsSupported = features.SupportEss, RawKey = "SupportEss" });
+            list.Add(new CapabilityItem { Name = "Boot CPU Voltage Tuning", IsSupported = features.SupportBootChangeCPUVoltage, RawKey = "SupportBootChangeCPUVoltage" });
+            list.Add(new CapabilityItem { Name = "USB Hub Reset", IsSupported = features.SupportUsbHubReset, RawKey = "SupportUsbHubReset" });
+
+            list.Sort((a, b) =>
+            {
+                if (a.IsSupported != b.IsSupported)
+                {
+                    return a.IsSupported ? -1 : 1;
+                }
+                return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+            });
+
+            return list;
         }
 
         static int GetWMI(int command)
@@ -57,9 +261,6 @@ namespace BSCustomClevoController.Utility
 
         struct Features
         {
-            public bool LoadDefault;
-            public int PCbeep;
-            public bool OCLoadDefault;
             public int EnergyStar15C;
             public int BatteryChargeControl;
             public bool FanSpeedSupport;
@@ -119,8 +320,6 @@ namespace BSCustomClevoController.Utility
                     features.SupportFanSpeedSetting = (WMI_Data & 128) == 128;
                     features.SupportEnergySave = (WMI_Data & 256) == 256;
                     features.SupportBatteryUtility = (WMI_Data & 512) == 512;
-                    byte[] bytes = BitConverter.GetBytes(WMI_Data);
-                    WriteAppSettings(0, 252, 4, ref bytes[0]);
                 }
                 else
                 {
@@ -129,43 +328,17 @@ namespace BSCustomClevoController.Utility
                     if (command == 60)
                     {
                         features.WakeUpLanState = (WMI_Data & 32) != 32 ? 0 : 1;
-                        //features.SetWakeUpOnLan();
                     }
                 }
             }
             else if (command <= 82)
             {
-                if (command == 68)
-                    return;
-                if (command != 70)
+                if (command == 82)
                 {
-                    if (command != 82)
-                        return;
-                    //features.DefaultPowerConverationMode = WMI_Data >> 4;
-                    //features.DefaultPowerConverationMode &= 3;
                     if ((WMI_Data & 2097152) == 2097152)
                         features.EnergyStar15C = 1;
-                    if ((WMI_Data & 134217728) != 134217728)
-                        return;
-                    features.BatteryChargeControl = 1;
-                }
-                else
-                {
-                    if ((WMI_Data & 1) == 1)
-                    {
-                        //int num1 = (int)CallingVariations.SetUSB(0);
-                        //int num2 = (int)CallingVariations.ReloadActivePowerPlan();
-                    }
-                    if ((WMI_Data & 4096) == 4096)
-                        features.LoadDefault = true;
-                    if ((WMI_Data & 8192) == 8192)
-                    {
-                        features.PCbeep = 1;
-                        //CallingVariations.pc_beep_Mute(true);
-                    }
-                    if ((WMI_Data & 131072) != 131072)
-                        return;
-                    features.OCLoadDefault = true;
+                    if ((WMI_Data & 134217728) == 134217728)
+                        features.BatteryChargeControl = 1;
                 }
             }
             else if (command != 96)

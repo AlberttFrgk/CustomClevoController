@@ -1,0 +1,201 @@
+<Page
+        xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+        x:Class="BSCustomClevoController.Views.Page_BatterySettings"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignHeight="720"
+        d:DesignWidth="1280"
+        Background="{DynamicResource Amoled.Background}">
+
+    <Grid Margin="28,20,28,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Battery &amp; FlexiCharger" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+            <TextBlock Text="Hardware charging thresholds, battery health preservation, and charge telemetry" 
+                       FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,3,0,0" />
+        </StackPanel>
+
+        <!-- 2-Column Content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.15*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Column: Charge Options Card -->
+            <Border Grid.Column="0" Style="{StaticResource AmoledCardStyle}" VerticalAlignment="Top">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                        <Path Data="M 10,2 L 18,5 V 10 C 18,15 14.5,19.5 10,21 C 5.5,19.5 2,15 2,10 V 5 Z M 8.5,14.5 L 15,8 L 13.5,6.5 L 8.5,11.5 L 6.5,9.5 L 5,11 Z"
+                              Fill="{StaticResource Amoled.Accent}" Width="16" Height="16" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Battery Charge Options" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Option 1: Maximum Battery Charge -->
+                    <Border Grid.Row="1" Style="{StaticResource SubCardStyle}" Padding="12,8" Margin="0,0,0,7">
+                        <RadioButton x:Name="MaxChargeRadio" GroupName="BatteryChargeModeGroup" Style="{StaticResource AmoledRadioButtonStyle}" Checked="ChargeRadio_Checked">
+                            <StackPanel Margin="0,0,0,0">
+                                <TextBlock Text="Maximum Battery Charge" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                <TextBlock Text="Constantly charges battery up to 100% capacity" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+
+                    <!-- Option 2: Recommended Battery Charge -->
+                    <Border Grid.Row="2" Style="{StaticResource SubCardStyle}" Padding="12,8" Margin="0,0,0,7">
+                        <RadioButton x:Name="RecommendedChargeRadio" GroupName="BatteryChargeModeGroup" Style="{StaticResource AmoledRadioButtonStyle}" Checked="ChargeRadio_Checked">
+                            <StackPanel Margin="0,0,0,0">
+                                <TextBlock Text="Recommended Health Charge" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                <TextBlock Text="Begins charging under 70% and stops automatically at 80% to protect cells" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+
+                    <!-- Option 3: Custom Battery Charge -->
+                    <Border Grid.Row="3" Style="{StaticResource SubCardStyle}" Padding="12,8" Margin="0,0,0,6">
+                        <StackPanel>
+                            <RadioButton x:Name="CustomChargeRadio" GroupName="BatteryChargeModeGroup" Style="{StaticResource AmoledRadioButtonStyle}" Checked="ChargeRadio_Checked">
+                                <StackPanel Margin="0,0,0,0">
+                                    <TextBlock Text="Custom Threshold Charge" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="Configure exact start and stop charge percentages" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <!-- Custom Threshold Inputs -->
+                            <Grid x:Name="CustomThresholdPanel" Margin="28,9,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="7" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Start charging when capacity is under:" FontSize="11.5" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                                <Grid Grid.Row="0" Grid.Column="1">
+                                    <TextBox x:Name="CustomStartBox" Text="90" Style="{StaticResource AmoledTextBoxStyle}" Padding="8,4" TextAlignment="Center" FontSize="12.5" MaxLength="2"
+                                             LostFocus="CustomThresholdBox_LostFocus" KeyDown="CustomThresholdBox_KeyDown" />
+                                </Grid>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Stop charging when capacity reaches:" FontSize="11.5" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                                <Grid Grid.Row="2" Grid.Column="1">
+                                    <TextBox x:Name="CustomStopBox" Text="100" Style="{StaticResource AmoledTextBoxStyle}" Padding="8,4" TextAlignment="Center" FontSize="12.5" MaxLength="3"
+                                             LostFocus="CustomThresholdBox_LostFocus" KeyDown="CustomThresholdBox_KeyDown" />
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Auto-apply Status Feedback -->
+                    <TextBlock x:Name="BatteryStatusText" Grid.Row="4" VerticalAlignment="Center"
+                               FontSize="11.5" FontWeight="SemiBold" Margin="4,2,0,0" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!-- Right Column: Live Battery Status & Longevity Guide -->
+            <StackPanel Grid.Column="2">
+                <!-- Live Hardware Battery Status Card -->
+                <Border Style="{StaticResource AmoledCardStyle}" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Live Battery Status" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,14" />
+
+                        <!-- Level Indicator -->
+                        <Grid Grid.Row="1" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Current Level" FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="LiveBatteryPercentText" Grid.Column="1" Text="100%" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
+                        </Grid>
+
+                        <ProgressBar x:Name="LiveBatteryProgressBar" Grid.Row="2" 
+                                     Style="{StaticResource AmoledProgressBarStyle}"
+                                     Height="8" Value="100" Minimum="0" Maximum="100"
+                                     Margin="0,0,0,16" />
+
+                        <Grid Grid.Row="3" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Power Source:" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" />
+                            <TextBlock x:Name="LivePowerSourceText" Grid.Column="1" Text="AC Connected" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                        </Grid>
+
+                        <Grid Grid.Row="4" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Battery Voltage:" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" />
+                            <TextBlock x:Name="LiveVoltageText" Grid.Column="1" Text="-- V" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                        </Grid>
+
+                        <Grid Grid.Row="5" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Charge Rate:" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" />
+                            <TextBlock x:Name="LiveChargeRateText" Grid.Column="1" Text="-- W" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                        </Grid>
+
+                        <Grid Grid.Row="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Active Limit:" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" />
+                            <TextBlock x:Name="LiveLimitStatusText" Grid.Column="1" Text="Disabled (Full 100% Charge)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.Accent}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Longevity Guide Card -->
+                <Border Style="{StaticResource AmoledCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Battery Care Guide" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Why use FlexiCharger?" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" Margin="0,0,0,6" />
+                        <TextBlock Text="Lithium-ion cells degrade fastest when kept at 100% state of charge under continuous high temperatures. By keeping your laptop between 70% and 80% while plugged in on a desk, you significantly reduce chemical stress and extend overall lifespan."
+                                   FontSize="12" Foreground="{StaticResource Amoled.TextSecondary}" TextWrapping="Wrap" LineHeight="17" Margin="0,0,0,12" />
+
+                        <TextBlock Text="• Recommended: Ideal for everyday gaming and desk work with AC plugged in." FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,0,0,4" />
+                        <TextBlock Text="• Maximum: Ideal when preparing for travel to ensure maximum battery runtime." FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,0,0,4" />
+                        <TextBlock Text="• Custom: Tune exact thresholds to match your specific workflow." FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
