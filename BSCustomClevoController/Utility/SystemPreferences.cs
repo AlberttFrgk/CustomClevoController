@@ -2367,14 +2367,82 @@ namespace BSCustomClevoController.Utility
                 Fan.SetMode(fanStatus.Mode);
 
                 KeyboardStatus kbStatus = KeyboardBackLight.GetStatus();
+                KeyboardHardwareCapabilities caps = KeyboardBackLight.GetCapabilities();
+                byte targetBrightness = kbStatus.BackLight.A > 0 ? kbStatus.BackLight.A : (byte)255;
+                KeyboardEffects.MaxBrightness = targetBrightness;
+
+                KeyboardEffect savedEffect = null;
+                int animSpeed = 2;
+                object regEffectActive = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectActive", null);
+                if (regEffectActive is int intEffActive && intEffActive == 1)
+                {
+                    object regEffectId = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectId", null);
+                    object regEffectUniq = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectUniqId", null);
+                    object regEffectName = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectName", null);
+                    if (regEffectId is int effId)
+                    {
+                        byte effUniq = regEffectUniq is int u ? (byte)u : (byte)0;
+                        string effName = regEffectName as string;
+                        savedEffect = KeyboardEffect.LookUpEffect(effId, effUniq, effName);
+                    }
+                    object regSpeed = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbAnimationSpeed", null);
+                    if (regSpeed is int s && s >= 1 && s <= 3) animSpeed = s;
+                }
+
                 if (kbStatus.LightState)
                 {
-                    KeyboardBackLight.TurnOn();
-                    KeyboardBackLight.SetBrightness(kbStatus.BackLight.A);
-                    KeyboardHardwareCapabilities caps = KeyboardBackLight.GetCapabilities();
-                    if (caps.SupportsRgb)
+                    bool onBattery = KeyboardEffects.IsRunningOnBattery;
+                    bool shouldStartEffect = savedEffect != null && (!savedEffect.IsSoftware || !onBattery);
+
+                    if (shouldStartEffect)
                     {
-                        KeyboardBackLight.SetColour(kbStatus.BackLight.R, kbStatus.BackLight.G, kbStatus.BackLight.B);
+                        KeyboardEffect.CurrentAnimationSpeed = animSpeed;
+                        KeyboardEffects.Duration = animSpeed == 1 ? 5000 : (animSpeed == 3 ? 1000 : 2500);
+                        KeyboardEffects.MaxBrightness = targetBrightness;
+
+                        if (savedEffect.IsSoftware)
+                        {
+                            bool isBreath = savedEffect.Id == 8 || savedEffect.Id == 10;
+                            if (savedEffect.Id == 8 && caps.SupportsRgb)
+                            {
+                                KeyboardBackLight.SetColourRealtime(kbStatus.BackLight.R, kbStatus.BackLight.G, kbStatus.BackLight.B);
+                            }
+                            else if ((savedEffect.Id == 9 || savedEffect.Id == 10) && caps.SupportsRgb)
+                            {
+                                // Initialize at first Rainbow color instead of flashing static color
+                                KeyboardBackLight.SetColourRealtime(255, 0, 0);
+                            }
+
+                            KeyboardBackLight.TurnOn(isBreath ? (byte)0 : targetBrightness);
+
+                            System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                            {
+                                savedEffect.SetEffect();
+                            }));
+                        }
+                        else
+                        {
+                            KeyboardBackLight.TurnOn(targetBrightness);
+                            KeyboardBackLight.SetMode(savedEffect, targetBrightness);
+                        }
+                    }
+                    else
+                    {
+                        if (savedEffect != null && savedEffect.IsSoftware && onBattery)
+                        {
+                            KeyboardEffects.SavedBatterySoftwareEffect = savedEffect;
+                        }
+
+                        if (caps.SupportsRgb)
+                        {
+                            KeyboardBackLight.SetColourRealtime(kbStatus.BackLight.R, kbStatus.BackLight.G, kbStatus.BackLight.B);
+                        }
+                        KeyboardBackLight.TurnOn(targetBrightness);
+                        if (caps.SupportsRgb)
+                        {
+                            KeyboardBackLight.SetColour(kbStatus.BackLight.R, kbStatus.BackLight.G, kbStatus.BackLight.B);
+                        }
+                        KeyboardBackLight.SetBrightness(targetBrightness);
                     }
                 }
                 else
@@ -2384,47 +2452,6 @@ namespace BSCustomClevoController.Utility
                 KeyboardBackLight.SetSleepTimer(kbStatus.SleepSecond);
 
                 ApplyKeyboardSettingsToEC();
-
-                object regEffectActive = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectActive", null);
-                if (regEffectActive is int intEffActive && intEffActive == 1 && kbStatus.LightState)
-                {
-                    object regEffectId = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectId", null);
-                    object regEffectUniq = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectUniqId", null);
-                    object regEffectName = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectName", null);
-                    if (regEffectId is int effId)
-                    {
-                        byte effUniq = regEffectUniq is int u ? (byte)u : (byte)0;
-                        string effName = regEffectName as string;
-                        KeyboardEffect savedEffect = KeyboardEffect.LookUpEffect(effId, effUniq, effName);
-                        if (savedEffect != null)
-                        {
-                            object regSpeed = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbAnimationSpeed", null);
-                            int animSpeed = (regSpeed is int s && s >= 1 && s <= 3) ? s : 2;
-                            KeyboardEffect.CurrentAnimationSpeed = animSpeed;
-                            KeyboardEffects.Duration = animSpeed == 1 ? 5000 : (animSpeed == 3 ? 1000 : 2500);
-                            KeyboardEffects.MaxBrightness = kbStatus.BackLight.A > 0 ? kbStatus.BackLight.A : (byte)255;
-
-                            if (savedEffect.IsSoftware)
-                            {
-                                if (!KeyboardEffects.IsRunningOnBattery)
-                                {
-                                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
-                                    {
-                                        savedEffect.SetEffect();
-                                    }));
-                                }
-                                else
-                                {
-                                    KeyboardEffects.SavedBatterySoftwareEffect = savedEffect;
-                                }
-                            }
-                            else
-                            {
-                                savedEffect.SetEffect();
-                            }
-                        }
-                    }
-                }
 
                 object regBatMode = Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryMode", null);
                 if (regBatMode is int intBatMode)

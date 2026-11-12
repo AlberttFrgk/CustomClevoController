@@ -128,7 +128,7 @@ namespace BSCustomClevoController.Utility
 
         public static void ShowAirplane(bool enabled)
         {
-            ShowInternal(enabled ? "osd_airplane_on_cc40_1.png" : "osd_airplane_off_cc40_1.png", enabled ? "AIRPLANE MODE ON" : "AIRPLANE MODE OFF");
+            /* ShowInternal(enabled ? "osd_airplane_on_cc40_1.png" : "osd_airplane_off_cc40_1.png", enabled ? "AIRPLANE MODE ON" : "AIRPLANE MODE OFF"); */
         }
 
         public static void ShowFnLock(bool locked)
@@ -178,7 +178,7 @@ namespace BSCustomClevoController.Utility
             switch (mode)
             {
                 case Fan.Mode.Max:
-                    ShowInternal("osd_fan_speed_max_cc40_1.png", "MAX FAN (100%)");
+                    ShowInternal("osd_fan_speed_max_cc40_1.png", "MAX FAN");
                     break;
                 case Fan.Mode.MaxQ:
                     ShowInternal("osd_fan_speed_MaxQ_cc40_1.png", "QUIET FAN");

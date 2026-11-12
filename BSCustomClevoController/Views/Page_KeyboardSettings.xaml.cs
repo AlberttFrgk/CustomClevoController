@@ -121,8 +121,8 @@ namespace BSCustomClevoController.Views
             // Initialize lighting master status
             LedStatusCheckBox.IsChecked = status.LightState;
 
-            // Initialize brightness slider
-            int initialStep = KeyboardBackLight.BrightnessToStep(status.BackLight.A, status.LightState);
+            // Initialize brightness slider (preserve saved brightness even if backlight is currently off)
+            int initialStep = KeyboardBackLight.BrightnessToStep(status.BackLight.A, true);
             if (initialStep < 1) initialStep = 4;
             _pendingBrightness = (byte)(initialStep == 1 ? 64 : (initialStep == 2 ? 128 : (initialStep == 3 ? 192 : 255)));
             KeyboardEffects.MaxBrightness = _pendingBrightness;
@@ -237,10 +237,12 @@ namespace BSCustomClevoController.Views
             {
                 Color c = _pendingColor.Value;
                 KeyboardBackLight.SetColourRealtime(c.R, c.G, c.B);
+                KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
 
                 if (LightBarCheckBox?.IsChecked == true)
                 {
-                    KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, 100);
+                    byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
+                    KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
                 }
 
                 // Restart debounce timer to save to ACPI flash when user finishes adjusting
@@ -255,6 +257,7 @@ namespace BSCustomClevoController.Views
             if (_pendingColor.HasValue)
             {
                 Color c = _pendingColor.Value;
+                _pendingColor = null;
                 KeyboardBackLight.SetColour(c.R, c.G, c.B);
             }
             KeyboardBackLight.SetBrightness(_pendingBrightness);
@@ -300,13 +303,30 @@ namespace BSCustomClevoController.Views
 
             if (_isInitializing) return;
 
-            bool isSoftwareBreathRunning = ModeStatus.IsChecked == true &&
-                EffectsListBox.SelectedItem is KeyboardEffect effect &&
+            bool isModeActive = ModeStatus.IsChecked == true;
+            KeyboardEffect effect = EffectsListBox.SelectedItem as KeyboardEffect;
+            bool isSoftwareBreathRunning = isModeActive && effect != null &&
                 (effect.Id == 8 || effect.Id == 10);
 
             if (!isSoftwareBreathRunning)
             {
                 KeyboardBackLight.SetBrightnessRealtime(val);
+            }
+
+            if (isModeActive && effect != null && effect.IsIteHardwareEffect && IteHidController.IsDevicePresent)
+            {
+                IteHidController.SetHardwareAnimation(
+                    effect.IteAnimMode,
+                    KeyboardEffect.GetIteSpeedByte(),
+                    IteHidController.ScaleBrightness(val),
+                    effect.IteBehaviour);
+            }
+
+            if (LightBarCheckBox?.IsChecked == true && LedColorCanvas.SelectedColor.HasValue)
+            {
+                Color c = LedColorCanvas.SelectedColor.Value;
+                byte lbBri = (byte)Math.Round(val / 255.0 * 100.0);
+                KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
             }
 
             // Debounce persistence write to ACPI
@@ -333,11 +353,17 @@ namespace BSCustomClevoController.Views
                         LedStatusCheckBox.IsChecked = true;
                     }
 
-                    _pendingColor = col;
+                    _pendingColor = null;
                     LedColorCanvas.SelectedColor = col;
 
-                    KeyboardBackLight.SetColourRealtime(col.R, col.G, col.B);
                     KeyboardBackLight.SetColour(col.R, col.G, col.B);
+                    KeyboardBackLight.SetBrightness(_pendingBrightness);
+
+                    if (LightBarCheckBox?.IsChecked == true)
+                    {
+                        byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
+                        KeyboardBackLight.SetLightBarColor(col.R, col.G, col.B, lbBri);
+                    }
                 }
                 catch
                 {
@@ -526,6 +552,7 @@ namespace BSCustomClevoController.Views
             {
                 Color c = LedColorCanvas.SelectedColor.Value;
                 KeyboardBackLight.SetColour(c.R, c.G, c.B);
+                KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
             }
 
             UpdateColorControlsState();
@@ -560,17 +587,15 @@ namespace BSCustomClevoController.Views
             KeyboardEffects.Duration = speed == 1 ? 5000 : (speed == 3 ? 1000 : 2500);
 
             KeyboardEffects.MaxBrightness = _pendingBrightness;
-            KeyboardBackLight.TurnOn();
+
+            if (effect.Id == 8 && LedColorCanvas?.SelectedColor.HasValue == true)
+            {
+                Color c = LedColorCanvas.SelectedColor.Value;
+                KeyboardBackLight.SetColourRealtime(c.R, c.G, c.B);
+            }
 
             bool isSoftwareBreath = effect.Id == 8 || effect.Id == 10;
-            if (isSoftwareBreath)
-            {
-                KeyboardBackLight.SetBrightnessRealtime(0);
-            }
-            else
-            {
-                KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
-            }
+            KeyboardBackLight.TurnOn(isSoftwareBreath ? (byte)0 : _pendingBrightness);
 
             SetSleepTimerPaused(true);
             effect.SetEffect();
@@ -580,14 +605,15 @@ namespace BSCustomClevoController.Views
         private void LightBarCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
+            byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
             if (LedColorCanvas.SelectedColor.HasValue)
             {
                 Color c = LedColorCanvas.SelectedColor.Value;
-                KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, 100);
+                KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
             }
             else
             {
-                KeyboardBackLight.SetLightBarColor(59, 130, 246, 100);
+                KeyboardBackLight.SetLightBarColor(59, 130, 246, lbBri);
             }
         }
 
@@ -634,10 +660,10 @@ namespace BSCustomClevoController.Views
 
             if (EffectsListBox?.SelectedItem is KeyboardEffect effect)
             {
-                if (effect.IsIteHardwareEffect)
+                if (effect.IsIteHardwareEffect && IteHidController.IsDevicePresent)
                 {
-                    byte iteSpeed = speed == 1 ? (byte)0x08 : (speed == 3 ? (byte)0x02 : (byte)0x05);
-                    IteHidController.SetHardwareAnimation(effect.IteAnimMode, iteSpeed, 0x32, effect.IteBehaviour);
+                    byte iteSpeed = KeyboardEffect.GetIteSpeedByte();
+                    IteHidController.SetHardwareAnimation(effect.IteAnimMode, iteSpeed, IteHidController.ScaleBrightness(_pendingBrightness), effect.IteBehaviour);
                 }
                 else if (effect.IsSoftware)
                 {
@@ -986,6 +1012,7 @@ namespace BSCustomClevoController.Views
                     int step = KeyboardBackLight.BrightnessToStep(status.BackLight.A, status.LightState);
                     if (step < 1) step = 1;
                     _pendingBrightness = (byte)(step == 1 ? 64 : (step == 2 ? 128 : (step == 3 ? 192 : 255)));
+                    KeyboardEffects.MaxBrightness = _pendingBrightness;
                     KeyboardBrightnessSlider.Value = step;
                     BrightnessPercentText.Text = $"{step * 25}%";
                 }

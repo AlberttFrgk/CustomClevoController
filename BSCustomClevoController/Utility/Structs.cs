@@ -156,19 +156,15 @@ namespace BSCustomClevoController.Utility
 
             public static int CurrentAnimationSpeed = 2; // 1 = Slow, 2 = Normal, 3 = Fast
 
+            public static byte GetIteSpeedByte()
+            {
+                return CurrentAnimationSpeed == 1 ? (byte)0x08 : (CurrentAnimationSpeed == 3 ? (byte)0x02 : (byte)0x05);
+            }
+
             public void SetEffect()
             {
                 StopAllSoftwareEffects();
-                if (IsIteHardwareEffect && IteHidController.IsDevicePresent)
-                {
-                    byte iteSpeed = CurrentAnimationSpeed == 1 ? (byte)0x08 : (CurrentAnimationSpeed == 3 ? (byte)0x02 : (byte)0x05);
-                    IteHidController.SetHardwareAnimation(IteAnimMode, iteSpeed, 0x32, IteBehaviour);
-                    if (UniqId != 0)
-                    {
-                        KeyboardBackLight.SetMode(this);
-                    }
-                }
-                else if (UniqId != 0)
+                if (IsIteHardwareEffect || UniqId != 0)
                 {
                     KeyboardBackLight.SetMode(this);
                 }

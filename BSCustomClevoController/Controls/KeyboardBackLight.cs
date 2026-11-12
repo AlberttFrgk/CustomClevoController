@@ -252,6 +252,7 @@ namespace BSCustomClevoController.Controls
                     effect = KeyboardEffect.LookUpEffect(mode);
                 }
 
+                _lastTargetBrightness = displayBrightness;
                 return new KeyboardStatus()
                 {
                     BackLight = Color.FromArgb(displayBrightness, colour[0], colour[1], colour[2]),
@@ -276,6 +277,32 @@ namespace BSCustomClevoController.Controls
             }
         }
 
+        private static byte _lastTargetBrightness = 255;
+
+        public static byte GetCurrentTargetBrightness()
+        {
+            try
+            {
+                object regBri = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbBrightness", null);
+                if (regBri is int intBri)
+                {
+                    byte clamped = (byte)Math.Max(1, Math.Min(255, intBri));
+                    _lastTargetBrightness = clamped;
+                    return clamped;
+                }
+            }
+            catch
+            {
+            }
+
+            if (KeyboardEffects.MaxBrightness > 0)
+            {
+                return KeyboardEffects.MaxBrightness;
+            }
+
+            return _lastTargetBrightness > 0 ? _lastTargetBrightness : (byte)255;
+        }
+
         public static void SetBrightnessRealtime(byte value)
         {
             try
@@ -291,7 +318,14 @@ namespace BSCustomClevoController.Controls
         {
             try
             {
-                SetBrightnessRealtime(value);
+                _lastTargetBrightness = value;
+                KeyboardEffects.MaxBrightness = value;
+
+                if (!KeyboardEffects.IsBreathingSoftwareEffectRunning())
+                {
+                    SetBrightnessRealtime(value);
+                }
+
                 WriteAppSettings(2, 35, 1, ref value);
                 try
                 {
@@ -299,6 +333,19 @@ namespace BSCustomClevoController.Controls
                 }
                 catch
                 {
+                }
+
+                if (!KeyboardEffect.IsAnySoftwareEffectRunning() && IteHidController.IsDevicePresent)
+                {
+                    KeyboardStatus status = GetStatus();
+                    if (status.LightState && status.Effect != null && status.Effect.IsIteHardwareEffect)
+                    {
+                        IteHidController.SetHardwareAnimation(
+                            status.Effect.IteAnimMode,
+                            KeyboardEffect.GetIteSpeedByte(),
+                            IteHidController.ScaleBrightness(value),
+                            status.Effect.IteBehaviour);
+                    }
                 }
             }
             catch
@@ -349,6 +396,11 @@ namespace BSCustomClevoController.Controls
                 catch
                 {
                 }
+
+                if (!KeyboardEffects.IsBreathingSoftwareEffectRunning())
+                {
+                    SetBrightnessRealtime(GetCurrentTargetBrightness());
+                }
             }
             catch
             {
@@ -360,14 +412,20 @@ namespace BSCustomClevoController.Controls
             SetColour(color.R, color.G, color.B);
         }
 
-        public static void SetMode(KeyboardEffect mode)
+        public static void SetMode(KeyboardEffect mode, byte? brightnessOverride = null)
         {
             if (mode == null) return;
             try
             {
+                byte targetBrightness = brightnessOverride ?? GetCurrentTargetBrightness();
+                _lastTargetBrightness = targetBrightness;
+                KeyboardEffects.MaxBrightness = targetBrightness;
+
                 if (mode.IsIteHardwareEffect && IteHidController.IsDevicePresent)
                 {
-                    IteHidController.SetHardwareAnimation(mode.IteAnimMode, 0x05, 0x32, mode.IteBehaviour);
+                    byte iteSpeed = KeyboardEffect.GetIteSpeedByte();
+                    byte iteBrightness = IteHidController.ScaleBrightness(targetBrightness);
+                    IteHidController.SetHardwareAnimation(mode.IteAnimMode, iteSpeed, iteBrightness, mode.IteBehaviour);
                 }
 
                 if (mode.UniqId != 0)
@@ -375,6 +433,8 @@ namespace BSCustomClevoController.Controls
                     SetDCHU_Data(103, new byte[4] { 0, 0, 0, mode.UniqId }, 4);
                     byte id = (byte)mode.Id;
                     WriteAppSettings(2, 32, 1, ref id);
+                    // Clevo EC resets or overrides PWM brightness on hardware mode switch; re-apply target brightness immediately after.
+                    SetBrightnessRealtime(targetBrightness);
                 }
             }
             catch
@@ -410,12 +470,21 @@ namespace BSCustomClevoController.Controls
             }
         }
 
-        public static void TurnOn()
+        public static void TurnOn(byte? initialBrightness = null)
         {
             try
             {
-                SetDCHU_Data(103, new byte[4] { 7, 0xB0, 7, 224 }, 4);
+                byte zoneState = 0;
+                ReadAppSettings(2, 80, 1, ref zoneState);
+                if (zoneState == 0)
+                {
+                    SetDCHU_Data(103, new byte[4] { 7, 0xB0, 7, 224 }, 4);
+                }
                 SetDCHU_Data(103, new byte[4] { 0, 0, 1, 224 }, 4);
+
+                byte targetBri = initialBrightness ?? GetCurrentTargetBrightness();
+                SetBrightnessRealtime(targetBri);
+
                 byte val = 1;
                 WriteAppSettings(2, 80, 1, ref val);
                 WriteAppSettings(2, 84, 1, ref val);
@@ -580,11 +649,12 @@ namespace BSCustomClevoController.Controls
                     int nextStep = (currentStep + 1) % 5;
                     if (nextStep == 0)
                     {
+                        KeyboardEffect.StopAllSoftwareEffects();
                         TurnOff();
                     }
                     else
                     {
-                        ApplyBrightnessStep(nextStep, status.BackLight);
+                        ApplyBrightnessStep(nextStep, status);
                     }
                     NotifyKeyboardUiChanged();
                     return nextStep;
@@ -610,7 +680,7 @@ namespace BSCustomClevoController.Controls
                         return null;
                     }
                     int nextStep = Math.Min(4, Math.Max(1, currentStep + 1));
-                    ApplyBrightnessStep(nextStep, status.BackLight);
+                    ApplyBrightnessStep(nextStep, status);
                     NotifyKeyboardUiChanged();
                     return nextStep;
                 }
@@ -635,7 +705,7 @@ namespace BSCustomClevoController.Controls
                         return null;
                     }
                     int nextStep = Math.Max(1, currentStep - 1);
-                    ApplyBrightnessStep(nextStep, status.BackLight);
+                    ApplyBrightnessStep(nextStep, status);
                     NotifyKeyboardUiChanged();
                     return nextStep;
                 }
@@ -646,16 +716,66 @@ namespace BSCustomClevoController.Controls
             }
         }
 
-        private static void ApplyBrightnessStep(int step, Color currentColor)
+        private static void ApplyBrightnessStep(int step, KeyboardStatus status)
         {
             int clamped = Math.Max(1, Math.Min(4, step));
             byte rawBrightness = BrightnessStepValues[clamped];
-            TurnOn();
-            KeyboardEffects.MaxBrightness = rawBrightness;
+            bool wasOff = !status.LightState;
+            bool isBreathing = status.Effect != null && (status.Effect.Id == 8 || status.Effect.Id == 10);
+
+            TurnOn(isBreathing ? (byte)0 : rawBrightness);
             SetBrightness(rawBrightness);
-            if (!KeyboardEffect.IsAnySoftwareEffectRunning() && GetCapabilities().SupportsRgb)
+
+            bool softwareRunning = KeyboardEffect.IsAnySoftwareEffectRunning();
+            if (wasOff && status.Effect != null)
             {
-                SetColourRealtime(currentColor.R, currentColor.G, currentColor.B);
+                RestoreEffectAtBrightness(status.Effect, status.BackLight, rawBrightness);
+            }
+            else if (status.Effect == null && !softwareRunning && GetCapabilities().SupportsRgb)
+            {
+                SetColourRealtime(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+                SetBrightnessRealtime(rawBrightness);
+            }
+        }
+
+        private static void RestoreEffectAtBrightness(KeyboardEffect effect, Color staticColor, byte rawBrightness)
+        {
+            if (effect == null) return;
+
+            if (effect.IsSoftware)
+            {
+                if (KeyboardEffects.IsRunningOnBattery)
+                {
+                    if (GetCapabilities().SupportsRgb)
+                    {
+                        SetColourRealtime(staticColor.R, staticColor.G, staticColor.B);
+                    }
+                    SetBrightnessRealtime(rawBrightness);
+                    return;
+                }
+
+                if (effect.Id == 8 && GetCapabilities().SupportsRgb)
+                {
+                    SetColourRealtime(staticColor.R, staticColor.G, staticColor.B);
+                }
+
+                if (effect.Id == 8 || effect.Id == 10)
+                {
+                    SetBrightnessRealtime(0);
+                }
+                else
+                {
+                    SetBrightnessRealtime(rawBrightness);
+                }
+
+                System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                {
+                    effect.SetEffect();
+                }));
+            }
+            else
+            {
+                SetMode(effect, rawBrightness);
             }
         }
 
@@ -669,14 +789,15 @@ namespace BSCustomClevoController.Controls
                     bool targetOn = forceState ?? !status.LightState;
                     if (!targetOn)
                     {
+                        KeyboardEffect.StopAllSoftwareEffects();
                         TurnOff();
                     }
                     else
                     {
-                        TurnOn();
                         int currentStep = BrightnessToStep(status.BackLight.A, true);
                         if (currentStep < 1) currentStep = 4;
-                        ApplyBrightnessStep(currentStep, status.BackLight);
+                        status.LightState = false;
+                        ApplyBrightnessStep(currentStep, status);
                     }
                     NotifyKeyboardUiChanged();
                     return targetOn;

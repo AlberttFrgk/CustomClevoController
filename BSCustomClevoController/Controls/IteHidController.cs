@@ -344,6 +344,16 @@ namespace BSCustomClevoController.Controls
         }
 
         /// <summary>
+        /// Converts a 0-255 brightness level to the 0x00-0x32 hardware scale used by ITE 8291.
+        /// </summary>
+        public static byte ScaleBrightness(byte rawBrightness)
+        {
+            if (rawBrightness == 0) return 0;
+            int scaled = (int)Math.Round(rawBrightness / 255.0 * 0x32);
+            return (byte)Math.Max(1, Math.Min(0x32, scaled));
+        }
+
+        /// <summary>
         /// Sends a direct ITE 8291 hardware animation control packet.
         /// Protocol reference: tuxedo-drivers src/ite_8291/ite_8291.c
         /// Control: 08 [power state] [anim mode] [speed] [brightness] 08 [behaviour] 00

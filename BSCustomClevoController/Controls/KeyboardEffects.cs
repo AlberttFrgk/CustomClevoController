@@ -156,8 +156,9 @@ namespace BSCustomClevoController.Controls
                 {
                     KeyboardBackLight.TurnOn();
                     byte bri = status.BackLight.A > 0 ? status.BackLight.A : (byte)255;
-                    KeyboardBackLight.SetBrightnessRealtime(bri);
+                    MaxBrightness = bri;
                     KeyboardBackLight.SetColourRealtime(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+                    KeyboardBackLight.SetBrightnessRealtime(bri);
                 }
                 else
                 {
@@ -210,8 +211,9 @@ namespace BSCustomClevoController.Controls
                         {
                             KeyboardBackLight.TurnOn();
                             byte bri = status.BackLight.A > 0 ? status.BackLight.A : (byte)255;
-                            KeyboardBackLight.SetBrightnessRealtime(bri);
+                            MaxBrightness = bri;
                             KeyboardBackLight.SetColourRealtime(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+                            KeyboardBackLight.SetBrightnessRealtime(bri);
                         }
                         else
                         {
@@ -285,17 +287,23 @@ namespace BSCustomClevoController.Controls
         };
 
         public static byte MaxBrightness = 255;
-        private static int breathColorIndex = 0;
+        private static int breathColorIndex = -1;
         private static DateTime transitionStart = DateTime.Now;
         private static int _lastBrightness = -1;
         private static int _lastR = -1;
         private static int _lastG = -1;
         private static int _lastB = -1;
 
+        public static bool IsBreathingSoftwareEffectRunning()
+        {
+            KeyboardEffect running = KeyboardEffect.FindSoftwareEffect();
+            return running != null && (running.Id == 8 || running.Id == 10);
+        }
+
         public static void ResetTime()
         {
             transitionStart = DateTime.Now;
-            breathColorIndex = 0;
+            breathColorIndex = -1;
             _lastBrightness = -1;
             _lastR = -1;
             _lastG = -1;
@@ -332,14 +340,15 @@ namespace BSCustomClevoController.Controls
             double ease = (1.0 - Math.Cos(progress * Math.PI)) / 2.0;
             byte targetBrightness = (byte)Math.Round(ease * MaxBrightness);
 
-            if (colorIdx != breathColorIndex)
+            bool colorChanged = colorIdx != breathColorIndex;
+            if (colorChanged)
             {
                 breathColorIndex = colorIdx;
                 Color baseColor = RainbowColors[breathColorIndex];
                 KeyboardBackLight.SetColourRealtime(baseColor.R, baseColor.G, baseColor.B);
             }
 
-            if (targetBrightness != _lastBrightness)
+            if (colorChanged || targetBrightness != _lastBrightness)
             {
                 _lastBrightness = targetBrightness;
                 KeyboardBackLight.SetBrightnessRealtime(targetBrightness);
@@ -368,12 +377,19 @@ namespace BSCustomClevoController.Controls
             Color to = RainbowColors[toIndex];
             Color interpolated = InterpolateColor(from, to, t);
 
-            if (interpolated.R != _lastR || interpolated.G != _lastG || interpolated.B != _lastB)
+            bool colorChanged = interpolated.R != _lastR || interpolated.G != _lastG || interpolated.B != _lastB;
+            if (colorChanged)
             {
                 _lastR = interpolated.R;
                 _lastG = interpolated.G;
                 _lastB = interpolated.B;
                 KeyboardBackLight.SetColourRealtime(interpolated.R, interpolated.G, interpolated.B);
+            }
+
+            if (colorChanged || _lastBrightness != MaxBrightness)
+            {
+                _lastBrightness = MaxBrightness;
+                KeyboardBackLight.SetBrightnessRealtime(MaxBrightness);
             }
         }
 
