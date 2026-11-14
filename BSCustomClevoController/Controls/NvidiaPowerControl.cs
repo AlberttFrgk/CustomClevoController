@@ -1,26 +1,10 @@
 using System;
-using System.Runtime.InteropServices;
-using BSCustomClevoController.Utility;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Controls
 {
     public static class NvidiaPowerControl
     {
-        private static int ReadAppSettings(int page, int offset, int length, ref byte buffer)
-        {
-            return InsydeDriver.ReadAppSettings(page, offset, length, ref buffer);
-        }
-
-        private static int WriteAppSettings(int page, int offset, int length, ref byte buffer)
-        {
-            return InsydeDriver.WriteAppSettings(page, offset, length, ref buffer);
-        }
-
-        private static int SetDCHU_Data(int command, byte[] buffer, int length)
-        {
-            return InsydeDriver.SetDCHU_Data(command, buffer, length);
-        }
-
         // EC RAM offsets from tuxedo-drivers uniwill_interfaces.h and tuxedo_nb02_nvidia_power_ctrl.c
         private const int EcRegCtgpDbEnable = 0x43;
         private const int EcRegCtgpOffset = 0x44;
@@ -74,14 +58,15 @@ namespace BSCustomClevoController.Controls
             try
             {
                 byte val = 0;
-                ReadAppSettings(7, EcRegCtgpOffset, 1, ref val);
+                InsydeDriver.ReadAppSettings(7, EcRegCtgpOffset, 1, ref val);
                 if (val <= 25)
                 {
                     _cachedTgpOffset = val;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("NvidiaPowerControl.GetTgpOffset", ex);
                 _cachedTgpOffset = 0;
             }
 
@@ -102,16 +87,14 @@ namespace BSCustomClevoController.Controls
                 byte ctgpVal = (byte)offsetWatts;
                 byte enableVal = (byte)(BitGeneralEnable | BitDbEnable | BitCtgpEnable);
 
-                // Write configuration to EC RAM table
-                WriteAppSettings(7, EcRegCtgpDbEnable, 1, ref enableVal);
-                WriteAppSettings(7, EcRegCtgpOffset, 1, ref ctgpVal);
-                WriteAppSettings(7, EcRegDbOffset, 1, ref ctgpVal);
-
-                // Notify DCHU interface of power profile update
-                SetDCHU_Data(121, new byte[4] { ctgpVal, 0, 0, 0x1A }, 4);
+                InsydeDriver.WriteAppSettings(7, EcRegCtgpDbEnable, 1, ref enableVal);
+                InsydeDriver.WriteAppSettings(7, EcRegCtgpOffset, 1, ref ctgpVal);
+                InsydeDriver.WriteAppSettings(7, EcRegDbOffset, 1, ref ctgpVal);
+                InsydeDriver.SetDCHU_Data(121, new byte[4] { ctgpVal, 0, 0, 0x1A }, 4);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("NvidiaPowerControl.SetTgpOffset", ex);
             }
         }
     }

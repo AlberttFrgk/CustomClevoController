@@ -1,7 +1,6 @@
 using System;
 using System.Management;
-using System.Runtime.InteropServices;
-using BSCustomClevoController.Utility;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Controls
 {
@@ -62,8 +61,9 @@ namespace BSCustomClevoController.Controls
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("BatteryControl.GetTelemetry.Wmi", ex);
             }
 
             if (telemetry.VoltageMv <= 0)
@@ -82,8 +82,9 @@ namespace BSCustomClevoController.Controls
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("BatteryControl.GetTelemetry.Win32", ex);
                 }
             }
 
@@ -128,8 +129,9 @@ namespace BSCustomClevoController.Controls
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("BatteryControl.GetStatus", ex);
             }
 
             return new BatteryChargeStatus
@@ -145,18 +147,9 @@ namespace BSCustomClevoController.Controls
         {
             try
             {
-                try
-                {
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryMode", (int)mode, Microsoft.Win32.RegistryValueKind.DWord);
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryStart", customStart, Microsoft.Win32.RegistryValueKind.DWord);
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryStop", customStop, Microsoft.Win32.RegistryValueKind.DWord);
-                }
-                catch
-                {
-                }
-
                 if (mode == BatteryChargeMode.Maximum)
                 {
+                    PersistBatterySettings(mode, customStart, customStop);
                     // Disable FlexiCharger: command 118, arg 0x05000000
                     SetDCHU_Data(118, new byte[4] { 0, 0, 0, 5 }, 4);
                     return true;
@@ -169,16 +162,33 @@ namespace BSCustomClevoController.Controls
                 start = Math.Max(40, Math.Min(99, start));
                 stop = Math.Max(50, Math.Min(100, stop));
 
+                PersistBatterySettings(mode, start, stop);
+
                 // Set thresholds: command 118, arg: 0x06000000 | (stop << 8) | start
                 SetDCHU_Data(118, new byte[4] { (byte)start, (byte)stop, 0, 6 }, 4);
 
-                // Enable FlexiCharger: command 118, arg: 0x05000001
+                // Enable FlexiCharger: command 118, arg 0x05000001
                 SetDCHU_Data(118, new byte[4] { 1, 0, 0, 5 }, 4);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("BatteryControl.SetChargeMode", ex);
                 return false;
+            }
+        }
+
+        private static void PersistBatterySettings(BatteryChargeMode mode, int start, int stop)
+        {
+            try
+            {
+                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryMode", (int)mode, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryStart", start, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "BatteryStop", stop, Microsoft.Win32.RegistryValueKind.DWord);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log("BatteryControl.PersistBatterySettings", ex);
             }
         }
     }

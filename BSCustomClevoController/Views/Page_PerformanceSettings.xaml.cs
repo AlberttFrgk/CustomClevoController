@@ -8,34 +8,38 @@ namespace BSCustomClevoController.Views
 {
     public partial class Page_PerformanceSettings : Page
     {
-        private readonly SolidColorBrush colorAccent = new SolidColorBrush(Color.FromRgb(0, 120, 215)); // #0078D7
-        private readonly SolidColorBrush colorBadgeBg = new SolidColorBrush(Color.FromRgb(27, 54, 93));  // #1B365D
-        private readonly SolidColorBrush colorCardInactiveBorder = new SolidColorBrush(Color.FromRgb(60, 60, 70)); // #3C3C46
-        private readonly SolidColorBrush colorCardActiveBorder = new SolidColorBrush(Color.FromRgb(0, 120, 215));   // #0078D7
-        private readonly SolidColorBrush colorCardActiveBg = new SolidColorBrush(Color.FromRgb(36, 48, 64));       // subtle cobalt tint
-        private readonly SolidColorBrush colorCardDefaultBg = new SolidColorBrush(Color.FromRgb(42, 42, 48));      // #2A2A30
-        private readonly SolidColorBrush colorWhite = new SolidColorBrush(Color.FromRgb(255, 255, 255));           // #FFFFFF
+        private readonly SolidColorBrush _colorAccent = new SolidColorBrush(Color.FromRgb(0, 120, 215));
+        private readonly SolidColorBrush _colorBadgeBg = new SolidColorBrush(Color.FromRgb(27, 54, 93));
+        private readonly SolidColorBrush _colorCardInactiveBorder = new SolidColorBrush(Color.FromRgb(60, 60, 70));
+        private readonly SolidColorBrush _colorCardActiveBorder = new SolidColorBrush(Color.FromRgb(0, 120, 215));
+        private readonly SolidColorBrush _colorCardActiveBg = new SolidColorBrush(Color.FromRgb(36, 48, 64));
+        private readonly SolidColorBrush _colorCardDefaultBg = new SolidColorBrush(Color.FromRgb(42, 42, 48));
+        private readonly SolidColorBrush _colorWhite = new SolidColorBrush(Color.FromRgb(255, 255, 255));
 
-        private readonly string QuietModeDes = "Fans run at minimum speed to keep acoustics quiet. Recommended for reading, typing, and quiet environments.";
-        private readonly string PowerSaveModeDes = "Processor speed and power consumption are reduced to maximize battery runtime.";
-        private readonly string EntertainmentModeDes = "Balanced performance and fan noise for everyday multitasking, media, and gaming.";
-        private readonly string PerformanceModeDes = "Maximum hardware power and proactive cooling for heavy workloads and gaming.";
+        private static string QuietModeDesc => LocalizationManager.T("PerfQuietDetail");
+        private static string PowerSaveModeDesc => LocalizationManager.T("PerfPowerSaverDetail");
+        private static string EntertainmentModeDesc => LocalizationManager.T("PerfEntertainmentDetail");
+        private static string PerformanceModeDesc => LocalizationManager.T("PerfPerformanceDetail");
 
         public Page_PerformanceSettings()
         {
             InitializeComponent();
             ApplyModeUI(PowerMode.GetStatus());
             InitializeHardwarePolicies();
+            LocalizationManager.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            ApplyModeUI(PowerMode.GetStatus());
         }
 
         private void InitializeHardwarePolicies()
         {
-            // Energy Star 1.5C
             bool energyStarSupported = Capabilities.IsSupported("EnergyStar15C");
             EnergyStarSwitch.IsEnabled = energyStarSupported;
             EnergyStarCard.Opacity = energyStarSupported ? 1.0 : 0.55;
 
-            // Dynamic Tuning (PCIe ASPM)
             bool dynamicTuningSupported = Capabilities.IsSupported("DynamicTuning");
             DynamicTuningSwitch.IsEnabled = dynamicTuningSupported;
             DynamicTuningCard.Opacity = dynamicTuningSupported ? 1.0 : 0.55;
@@ -51,16 +55,16 @@ namespace BSCustomClevoController.Views
             switch (mode)
             {
                 case PowerMode.Mode.Quiet:
-                    modeDetais.Text = QuietModeDes;
+                    modeDetais.Text = QuietModeDesc;
                     break;
                 case PowerMode.Mode.Powersaving:
-                    modeDetais.Text = PowerSaveModeDes;
+                    modeDetais.Text = PowerSaveModeDesc;
                     break;
                 case PowerMode.Mode.Performance:
-                    modeDetais.Text = PerformanceModeDes;
+                    modeDetais.Text = PerformanceModeDesc;
                     break;
                 case PowerMode.Mode.Entertainment:
-                    modeDetais.Text = EntertainmentModeDes;
+                    modeDetais.Text = EntertainmentModeDesc;
                     break;
             }
 
@@ -69,61 +73,45 @@ namespace BSCustomClevoController.Views
 
         private void SetCardState(Button cardBtn, Border badge, TextBlock badgeText, TextBlock titleText, bool isSelected)
         {
-            cardBtn.BorderBrush = isSelected ? colorCardActiveBorder : colorCardInactiveBorder;
-            cardBtn.Background = isSelected ? colorCardActiveBg : colorCardDefaultBg;
+            cardBtn.BorderBrush = isSelected ? _colorCardActiveBorder : _colorCardInactiveBorder;
+            cardBtn.Background = isSelected ? _colorCardActiveBg : _colorCardDefaultBg;
             badge.Visibility = isSelected ? Visibility.Visible : Visibility.Hidden;
-            badge.Background = colorBadgeBg;
-            badgeText.Text = isSelected ? "Active" : string.Empty;
-            badgeText.Foreground = colorAccent;
-            titleText.Foreground = isSelected ? colorAccent : colorWhite;
+            badge.Background = _colorBadgeBg;
+            badgeText.Text = isSelected ? LocalizationManager.T("PerfActive") : string.Empty;
+            badgeText.Foreground = _colorAccent;
+            titleText.Foreground = isSelected ? _colorAccent : _colorWhite;
         }
 
-        private void QuietModeBtn_Click(object sender, RoutedEventArgs e)
+        private void SelectPowerMode(PowerMode.Mode mode)
         {
-            PowerMode.SetPowerMode(PowerMode.Mode.Quiet);
-            ApplyModeUI(PowerMode.Mode.Quiet);
-            OsdOverlay.ShowPowerMode(PowerMode.Mode.Quiet);
+            PowerMode.SetPowerMode(mode);
+            ApplyModeUI(mode);
+            OsdOverlay.ShowPowerMode(mode);
         }
 
-        private void PowerSaveModeBtn_Click(object sender, RoutedEventArgs e)
-        {
-            PowerMode.SetPowerMode(PowerMode.Mode.Powersaving);
-            ApplyModeUI(PowerMode.Mode.Powersaving);
-            OsdOverlay.ShowPowerMode(PowerMode.Mode.Powersaving);
-        }
-
-        private void EntertainmentModeBtn_Click(object sender, RoutedEventArgs e)
-        {
-            PowerMode.SetPowerMode(PowerMode.Mode.Entertainment);
-            ApplyModeUI(PowerMode.Mode.Entertainment);
-            OsdOverlay.ShowPowerMode(PowerMode.Mode.Entertainment);
-        }
-
-        private void PerformanceModeBtn_Click(object sender, RoutedEventArgs e)
-        {
-            PowerMode.SetPowerMode(PowerMode.Mode.Performance);
-            ApplyModeUI(PowerMode.Mode.Performance);
-            OsdOverlay.ShowPowerMode(PowerMode.Mode.Performance);
-        }
+        private void QuietModeBtn_Click(object sender, RoutedEventArgs e) => SelectPowerMode(PowerMode.Mode.Quiet);
+        private void PowerSaveModeBtn_Click(object sender, RoutedEventArgs e) => SelectPowerMode(PowerMode.Mode.Powersaving);
+        private void EntertainmentModeBtn_Click(object sender, RoutedEventArgs e) => SelectPowerMode(PowerMode.Mode.Entertainment);
+        private void PerformanceModeBtn_Click(object sender, RoutedEventArgs e) => SelectPowerMode(PowerMode.Mode.Performance);
 
         private void QuietModeBtn_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            modeDetais.Text = QuietModeDes;
+            modeDetais.Text = QuietModeDesc;
         }
 
         private void PowerSaveModeBtn_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            modeDetais.Text = PowerSaveModeDes;
+            modeDetais.Text = PowerSaveModeDesc;
         }
 
         private void EntertainmentModeBtn_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            modeDetais.Text = EntertainmentModeDes;
+            modeDetais.Text = EntertainmentModeDesc;
         }
 
         private void PerformanceModeBtn_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            modeDetais.Text = PerformanceModeDes;
+            modeDetais.Text = PerformanceModeDesc;
         }
 
         private void EnergyStarSwitch_Click(object sender, RoutedEventArgs e)

@@ -1,7 +1,8 @@
-    using System;
+using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Views
 {
@@ -44,13 +45,19 @@ namespace BSCustomClevoController.Views
 
         private void OpenUrl(string url)
         {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri parsedUri) ||
+                !string.Equals(parsedUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             try
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(parsedUri.AbsoluteUri) { UseShellExecute = true });
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not open browser: " + ex.Message, "Open Link", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.Format("CommonErrorFmt", ex.Message), LocalizationManager.T("CommonNotice"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
     }

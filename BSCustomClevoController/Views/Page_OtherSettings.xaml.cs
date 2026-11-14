@@ -14,7 +14,7 @@ namespace BSCustomClevoController.Views
     {
         private readonly DispatcherTimer _prefSyncTimer;
         private int _nativeMaxRefreshRate = 60;
-        private DateTime _syncPausedUntilUtc = DateTime.MinValue;
+        private long _syncResumeAtTicks;
 
         public Page_OtherSettings()
         {
@@ -30,52 +30,53 @@ namespace BSCustomClevoController.Views
             };
             _prefSyncTimer.Tick += (s, e) =>
             {
-                if (DateTime.UtcNow >= _syncPausedUntilUtc)
+                if (!MonotonicClock.IsBefore(_syncResumeAtTicks))
                 {
                     SyncHardwarePreferences();
                 }
             };
             _prefSyncTimer.Start();
+            LocalizationManager.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            InitializePlatformTools();
+            UpdateDisplayRefreshRateUI();
+            UpdateCpuPerformanceText(CpuPowerControl.IsSupported, (int)(CpuPowerSlider?.Value ?? 0));
+            SyncHardwarePreferences(false);
         }
 
         private void InitializePlatformTools()
         {
-            // 1. GPU MUX Switch (Visible on all Clevo laptops; disabled if no hardware multiplexer)
             bool muxSupported = Capabilities.IsSupported("SupportMSHybrid_dGPUSwicth");
             GpuMuxSwitch.IsEnabled = muxSupported;
             GpuMuxCard.Opacity = muxSupported ? 1.0 : 0.55;
             if (muxSupported)
             {
-                GpuMuxBadgeText.Text = "Hardware MUX Ready";
+                GpuMuxBadgeText.Text = LocalizationManager.T("ToolsGpuMuxReady");
                 GpuMuxBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 GpuMuxBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 GpuMuxBadge.Background = new SolidColorBrush(Color.FromRgb(27, 62, 50));
             }
             else
             {
-                GpuMuxBadgeText.Text = "Not supported on this model";
+                GpuMuxBadgeText.Text = LocalizationManager.T("CommonNotSupported");
                 GpuMuxBadgeText.Foreground = (Brush)FindResource("Amoled.TextMuted");
                 GpuMuxBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 70));
                 GpuMuxBadge.Background = new SolidColorBrush(Color.FromRgb(28, 28, 36));
             }
 
-            // 2. Wake on LAN
-            bool wolSupported = Capabilities.IsSupported("WakeUpLanSupport");
-            PrefWolSwitch.IsEnabled = wolSupported;
-            PrefWolCard.Opacity = wolSupported ? 1.0 : 0.55;
-            PrefWolBadge.Visibility = wolSupported ? Visibility.Collapsed : Visibility.Visible;
+            ConfigureCapabilityCard(PrefWolSwitch, PrefWolCard, PrefWolBadge, Capabilities.IsSupported("WakeUpLanSupport"));
+            ConfigureCapabilityCard(PrefEthLedSwitch, PrefEthLedCard, PrefEthLedBadge, Capabilities.IsSupported("SupportEthernetLED"));
+            ConfigureCapabilityCard(PrefUsbResetBtn, PrefUsbResetCard, PrefUsbResetBadge, Capabilities.IsSupported("SupportUsbHubReset"));
+        }
 
-            // 3. Ethernet LED
-            bool ethLedSupported = Capabilities.IsSupported("SupportEthernetLED");
-            PrefEthLedSwitch.IsEnabled = ethLedSupported;
-            PrefEthLedCard.Opacity = ethLedSupported ? 1.0 : 0.55;
-            PrefEthLedBadge.Visibility = ethLedSupported ? Visibility.Collapsed : Visibility.Visible;
-
-            // 4. USB Hub Reset
-            bool usbResetSupported = Capabilities.IsSupported("SupportUsbHubReset");
-            PrefUsbResetBtn.IsEnabled = usbResetSupported;
-            PrefUsbResetCard.Opacity = usbResetSupported ? 1.0 : 0.55;
-            PrefUsbResetBadge.Visibility = usbResetSupported ? Visibility.Collapsed : Visibility.Visible;
+        private static void ConfigureCapabilityCard(Control control, FrameworkElement card, UIElement badge, bool supported)
+        {
+            if (control != null) control.IsEnabled = supported;
+            if (card != null) card.Opacity = supported ? 1.0 : 0.55;
+            if (badge != null) badge.Visibility = supported ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void UpdateDisplayRefreshRateUI()
@@ -86,15 +87,15 @@ namespace BSCustomClevoController.Views
                 List<int> availableRates = DisplayControl.GetAvailableRefreshRates();
 
                 _nativeMaxRefreshRate = availableRates.Count > 0 ? availableRates[availableRates.Count - 1] : currentHz;
-                RefreshRateCurrentText.Text = $"{currentHz} Hz";
+                RefreshRateCurrentText.Text = LocalizationManager.Format("ToolsRefreshCurrentFmt", currentHz);
 
-                RefreshNativeBtn.Content = $"{_nativeMaxRefreshRate} Hz (Native)";
+                RefreshNativeBtn.Content = LocalizationManager.Format("ToolsRefreshNativeFmt", _nativeMaxRefreshRate);
 
                 if (availableRates.Count <= 1 || _nativeMaxRefreshRate == 60)
                 {
                     Refresh60Btn.IsEnabled = false;
                     RefreshNativeBtn.IsEnabled = false;
-                    RefreshRateBadge.ToolTip = "Fixed display panel refresh rate detected.";
+                    RefreshRateBadge.ToolTip = LocalizationManager.T("ToolsRefreshFixedTooltip");
                 }
                 else
                 {
@@ -102,8 +103,9 @@ namespace BSCustomClevoController.Views
                     RefreshNativeBtn.IsEnabled = currentHz != _nativeMaxRefreshRate;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_OtherSettings.UpdateDisplayRefreshRateUI", ex);
             }
         }
 
@@ -111,7 +113,6 @@ namespace BSCustomClevoController.Views
         {
             try
             {
-                // 1. CPU Telemetry, Power Target, and Status
                 if (CpuNameText != null)
                 {
                     CpuNameText.Text = CpuPowerControl.CpuModel;
@@ -138,21 +139,13 @@ namespace BSCustomClevoController.Views
                     {
                         CpuOcBadgeText.Foreground = (Brush)FindResource("Amoled.Success");
                     }
-                    if (CpuOcDescriptionText != null)
-                    {
-                        CpuOcDescriptionText.Text = "Adjusts processor power limits for sustained boost performance";
-                    }
-                    if (CpuOcStatusSubText != null)
-                    {
-                        CpuOcStatusSubText.Text = "Range: 0W to +25W";
-                    }
 
                     int initialCpuPower = CpuPowerControl.GetPowerOffset();
                     if (CpuPowerSlider != null)
                     {
                         CpuPowerSlider.Value = initialCpuPower;
                     }
-                    UpdateCpuLabel(initialCpuPower);
+                    UpdateCpuPerformanceText(true, initialCpuPower);
                 }
                 else
                 {
@@ -168,23 +161,14 @@ namespace BSCustomClevoController.Views
                     if (CpuOcBadgeText != null)
                     {
                         CpuOcBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(160, 160, 170));
-                        CpuOcBadgeText.Text = "Locked (OEM)";
                     }
-                    if (CpuOcDescriptionText != null)
-                    {
-                        CpuOcDescriptionText.Text = "Processor power and speed managed by hardware";
-                    }
-                    if (CpuOcStatusSubText != null)
-                    {
-                        CpuOcStatusSubText.Text = "Locked by CPU firmware";
-                    }
+                    UpdateCpuPerformanceText(false, 0);
                     if (CpuPowerSlider != null)
                     {
                         CpuPowerSlider.Value = 0;
                     }
                 }
 
-                // 2. GPU Power Target & Overclock
                 if (NvidiaPowerControl.IsNvidiaPresent)
                 {
                     NvidiaTgpCard.Visibility = Visibility.Visible;
@@ -198,33 +182,13 @@ namespace BSCustomClevoController.Views
                     NvidiaTgpCard.Visibility = Visibility.Collapsed;
                 }
 
-                // 3. Model-Specific Overclocking Features
-                bool cpuMultiplierSupported = Capabilities.IsSupported("SupportCPUOC");
-                if (CpuMultiplierOcSwitch != null) CpuMultiplierOcSwitch.IsEnabled = cpuMultiplierSupported;
-                if (CpuMultiplierOcCard != null) CpuMultiplierOcCard.Opacity = cpuMultiplierSupported ? 1.0 : 0.55;
-                if (CpuMultiplierOcBadge != null)
-                {
-                    CpuMultiplierOcBadge.Visibility = cpuMultiplierSupported ? Visibility.Collapsed : Visibility.Visible;
-                }
-
-                bool allModeGpuSupported = Capabilities.IsSupported("SupportAllModeGPUOC");
-                if (AllModeGpuOcSwitch != null) AllModeGpuOcSwitch.IsEnabled = allModeGpuSupported;
-                if (AllModeGpuOcCard != null) AllModeGpuOcCard.Opacity = allModeGpuSupported ? 1.0 : 0.55;
-                if (AllModeGpuOcBadge != null)
-                {
-                    AllModeGpuOcBadge.Visibility = allModeGpuSupported ? Visibility.Collapsed : Visibility.Visible;
-                }
-
-                bool xmpSupported = Capabilities.IsSupported("SupportXMP");
-                if (XmpSwitch != null) XmpSwitch.IsEnabled = xmpSupported;
-                if (XmpCard != null) XmpCard.Opacity = xmpSupported ? 1.0 : 0.55;
-                if (XmpBadge != null)
-                {
-                    XmpBadge.Visibility = xmpSupported ? Visibility.Collapsed : Visibility.Visible;
-                }
+                ConfigureCapabilityCard(CpuMultiplierOcSwitch, CpuMultiplierOcCard, CpuMultiplierOcBadge, Capabilities.IsSupported("SupportCPUOC"));
+                ConfigureCapabilityCard(AllModeGpuOcSwitch, AllModeGpuOcCard, AllModeGpuOcBadge, Capabilities.IsSupported("SupportAllModeGPUOC"));
+                ConfigureCapabilityCard(XmpSwitch, XmpCard, XmpBadge, Capabilities.IsSupported("SupportXMP"));
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_OtherSettings.InitializePerformanceTuning", ex);
             }
         }
 
@@ -237,13 +201,11 @@ namespace BSCustomClevoController.Views
                     SystemPreferences.QueryKeyboardSettingsFromEC();
                 }
 
-                // 1. Win Key Lock
                 if (PrefWinKeySwitch != null)
                 {
                     PrefWinKeySwitch.IsChecked = SystemPreferences.IsWinKeyLocked;
                 }
 
-                // 2. Swap Win-Fn
                 if (PrefSwapWinFnSwitch != null)
                 {
                     if (!SystemPreferences.IsSwapWinFnSupported)
@@ -251,32 +213,27 @@ namespace BSCustomClevoController.Views
                         PrefSwapWinFnSwitch.IsEnabled = false;
                         PrefSwapWinFnSwitch.Opacity = 0.35;
                         PrefSwapWinFnSwitch.IsChecked = false;
-                        if (PrefSwapWinFnSubtitle != null)
-                        {
-                            PrefSwapWinFnSubtitle.Text = "Not supported on this model";
-                        }
+                        PrefSwapWinFnSubtitle?.SetResourceReference(TextBlock.TextProperty, "Loc.CommonNotSupported");
                     }
                     else
                     {
                         PrefSwapWinFnSwitch.IsEnabled = true;
                         PrefSwapWinFnSwitch.Opacity = 1.0;
                         PrefSwapWinFnSwitch.IsChecked = SystemPreferences.IsSwapWinFn;
+                        PrefSwapWinFnSubtitle?.SetResourceReference(TextBlock.TextProperty, "Loc.ToolsSwapWinFnDesc");
                     }
                 }
 
-                // 3. Fn-Key Lock
                 if (PrefFnLockSwitch != null)
                 {
                     PrefFnLockSwitch.IsChecked = SystemPreferences.IsFnLock;
                 }
 
-                // 4. Touchpad
                 if (PrefTouchpadSwitch != null)
                 {
                     PrefTouchpadSwitch.IsChecked = Touchpad.GetTouchpadState();
                 }
 
-                // 5. Camera
                 if (PrefCameraSwitch != null)
                 {
                     PrefCameraSwitch.IsChecked = SystemPreferences.GetCameraState();
@@ -287,38 +244,33 @@ namespace BSCustomClevoController.Views
                     PrefMicSwitch.IsChecked = SystemPreferences.GetMicrophoneState();
                 }
 
-                // 6. Airplane Mode
                 if (PrefAirplaneSwitch != null)
                 {
                     PrefAirplaneSwitch.IsChecked = SystemPreferences.GetAirplaneModeState();
                 }
 
-                // 7. Caps Lock
                 if (PrefCapsSwitch != null)
                 {
                     PrefCapsSwitch.IsChecked = SystemPreferences.GetCapsLockState();
                 }
 
-                // 8. Num Lock
                 if (PrefNumSwitch != null)
                 {
                     PrefNumSwitch.IsChecked = SystemPreferences.GetNumLockState();
                 }
 
-                // 9. Scroll Lock
                 if (PrefScrSwitch != null)
                 {
                     PrefScrSwitch.IsChecked = SystemPreferences.GetScrollLockState();
                 }
 
-                // 10. GPU Tuning & Overclock
                 if (PerformanceTuningSection != null && NvidiaTgpCard != null && NvidiaTgpCard.Visibility == Visibility.Visible && NvidiaPowerControl.IsNvidiaPresent)
                 {
                     bool isPowerSaver = (PowerMode.GetStatus() == PowerMode.Mode.Powersaving);
                     if (isPowerSaver)
                     {
                         TgpOffsetSlider.IsEnabled = false;
-                        TgpOffsetText.Text = "Eco (Disabled)";
+                        TgpOffsetText.Text = LocalizationManager.T("ToolsGpuPowerEco");
                     }
                     else
                     {
@@ -328,14 +280,10 @@ namespace BSCustomClevoController.Views
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_OtherSettings.SyncHardwarePreferences", ex);
             }
-        }
-
-        private void TurnOffScreenBtn_Click(object sender, RoutedEventArgs e)
-        {
-            SystemPreferences.TurnOffScreen();
         }
 
         private void Refresh60Btn_Click(object sender, RoutedEventArgs e)
@@ -358,10 +306,8 @@ namespace BSCustomClevoController.Views
             bool discreteOnly = GpuMuxSwitch.IsChecked == true;
             Capabilities.SetGpuMuxMode(discreteOnly);
             MessageBox.Show(
-                discreteOnly
-                    ? "Graphics switched to Dedicated GPU. Please restart your laptop to apply the change."
-                    : "Graphics switched to Hybrid mode (power saving). Please restart your laptop to apply the change.",
-                "GPU MUX Switch",
+                LocalizationManager.T(discreteOnly ? "ToolsGpuMuxSwitchedDgpu" : "ToolsGpuMuxSwitchedHybrid"),
+                LocalizationManager.T("ToolsGpuMuxTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -379,7 +325,7 @@ namespace BSCustomClevoController.Views
         private void PrefUsbResetBtn_Click(object sender, RoutedEventArgs e)
         {
             Capabilities.ResetUsbHub();
-            MessageBox.Show("The internal USB hub has been reset.", "USB Hub Reset", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(LocalizationManager.T("ToolsUsbResetDone"), LocalizationManager.T("ToolsUsbReset"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void ResetKeyboardPrefsBtn_Click(object sender, RoutedEventArgs e)
@@ -387,15 +333,15 @@ namespace BSCustomClevoController.Views
             SystemPreferences.ResetKeyboardPreferences();
             SyncHardwarePreferences();
             MessageBox.Show(
-                "Keyboard hardware settings (Fn Lock, Win Key Lock, Swap Win-Fn) have been reset to factory defaults.",
-                "Keyboard Reset",
+                LocalizationManager.T("ToolsKeyboardResetDone"),
+                LocalizationManager.T("ToolsKeyboardResetTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
 
         private void PrefWinKeyBtn_Click(object sender, RoutedEventArgs e)
         {
-            _syncPausedUntilUtc = DateTime.UtcNow.AddMilliseconds(2500);
+            _syncResumeAtTicks = MonotonicClock.DeadlineFromNowMs(2500);
             if (PrefWinKeySwitch != null)
             {
                 SystemPreferences.SetWinKeyLock(PrefWinKeySwitch.IsChecked == true);
@@ -409,7 +355,7 @@ namespace BSCustomClevoController.Views
 
         private void PrefSwapWinFnBtn_Click(object sender, RoutedEventArgs e)
         {
-            _syncPausedUntilUtc = DateTime.UtcNow.AddMilliseconds(2500);
+            _syncResumeAtTicks = MonotonicClock.DeadlineFromNowMs(2500);
             if (PrefSwapWinFnSwitch != null)
             {
                 SystemPreferences.SetSwapWinFn(PrefSwapWinFnSwitch.IsChecked == true);
@@ -423,7 +369,7 @@ namespace BSCustomClevoController.Views
 
         private void PrefFnLockBtn_Click(object sender, RoutedEventArgs e)
         {
-            _syncPausedUntilUtc = DateTime.UtcNow.AddMilliseconds(2500);
+            _syncResumeAtTicks = MonotonicClock.DeadlineFromNowMs(2500);
             if (PrefFnLockSwitch != null)
             {
                 SystemPreferences.SetFnLock(PrefFnLockSwitch.IsChecked == true);
@@ -437,7 +383,7 @@ namespace BSCustomClevoController.Views
 
         private void PrefTouchpadBtn_Click(object sender, RoutedEventArgs e)
         {
-            _syncPausedUntilUtc = DateTime.UtcNow.AddMilliseconds(2500);
+            _syncResumeAtTicks = MonotonicClock.DeadlineFromNowMs(2500);
             bool targetState = (PrefTouchpadSwitch != null && PrefTouchpadSwitch.IsChecked.HasValue)
                 ? PrefTouchpadSwitch.IsChecked.Value
                 : !Touchpad.GetTouchpadState();
@@ -512,22 +458,48 @@ namespace BSCustomClevoController.Views
             CpuPowerControl.SetPowerOffset(offset);
         }
 
-        private void UpdateCpuLabel(int offset)
+        private void UpdateCpuPerformanceText(bool cpuOcSupported, int offset)
         {
-            if (CpuOcBadgeText == null) return;
-
-            if (offset == 0)
+            if (cpuOcSupported)
             {
-                CpuOcBadgeText.Text = "+0W (Stock)";
-            }
-            else if (offset >= 25)
-            {
-                CpuOcBadgeText.Text = "+" + offset.ToString() + "W (Max Boost)";
+                if (CpuOcDescriptionText != null)
+                {
+                    CpuOcDescriptionText.Text = LocalizationManager.T("ToolsCpuPowerDesc");
+                }
+                if (CpuOcStatusSubText != null)
+                {
+                    CpuOcStatusSubText.Text = LocalizationManager.T("ToolsCpuPowerRange");
+                }
+                UpdateCpuLabel(offset);
             }
             else
             {
-                CpuOcBadgeText.Text = "+" + offset.ToString() + "W";
+                if (CpuOcBadgeText != null)
+                {
+                    CpuOcBadgeText.Text = LocalizationManager.T("ToolsCpuOcLocked");
+                }
+                if (CpuOcDescriptionText != null)
+                {
+                    CpuOcDescriptionText.Text = LocalizationManager.T("ToolsCpuOcLockedDesc");
+                }
+                if (CpuOcStatusSubText != null)
+                {
+                    CpuOcStatusSubText.Text = LocalizationManager.T("ToolsCpuOcLockedRange");
+                }
             }
+        }
+
+        private static string FormatPowerOffsetLabel(int offset)
+        {
+            if (offset == 0) return LocalizationManager.T("ToolsGpuStockBadge");
+            if (offset >= 25) return LocalizationManager.Format("ToolsPowerBoostMaxFmt", offset);
+            return "+" + offset + "W";
+        }
+
+        private void UpdateCpuLabel(int offset)
+        {
+            if (CpuOcBadgeText == null) return;
+            CpuOcBadgeText.Text = FormatPowerOffsetLabel(offset);
         }
 
         private void TgpOffsetSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -541,18 +513,8 @@ namespace BSCustomClevoController.Views
 
         private void UpdateTgpLabel(int offset)
         {
-            if (offset == 0)
-            {
-                TgpOffsetText.Text = "+0W (Stock)";
-            }
-            else if (offset >= 25)
-            {
-                TgpOffsetText.Text = "+" + offset.ToString() + "W (Max Boost)";
-            }
-            else
-            {
-                TgpOffsetText.Text = "+" + offset.ToString() + "W";
-            }
+            if (TgpOffsetText == null) return;
+            TgpOffsetText.Text = FormatPowerOffsetLabel(offset);
         }
     }
 }

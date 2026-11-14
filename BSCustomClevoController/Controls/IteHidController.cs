@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
-using BSCustomClevoController.Utility;
+using BSCustomClevoController.Utility;
+
 
 namespace BSCustomClevoController.Controls
 {
@@ -15,13 +16,13 @@ namespace BSCustomClevoController.Controls
         private static readonly int[] SupportedVendorIds = new int[]
         {
             0x048D, // ITE
-            0x373B  // Kelilu / Clevo MCU
+            0x373B  // Clevo MCU
         };
 
         private static readonly ushort[] SupportedProductIds = new ushort[]
         {
-            0x10C9, // Kelilu / Clevo MCU Keyboard
-            0x1107, // Kelilu / Clevo MCU Keyboard alternate
+            0x10C9, // Clevo MCU Keyboard
+            0x1107, // Clevo MCU Keyboard alternate
             0xCE00, // ITE 8291 default Clevo/Uniwill
             0x6004, // ITE 8291 variant 4
             0x600A, // ITE 8291 variant A
@@ -247,8 +248,9 @@ namespace BSCustomClevoController.Controls
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                BSCustomClevoController.Utility.AppLogger.Log("IteHidController.FindDevicePath", ex);
             }
             finally
             {
@@ -354,72 +356,15 @@ namespace BSCustomClevoController.Controls
         }
 
         /// <summary>
-        /// Sends a direct ITE 8291 hardware animation control packet.
-        /// Protocol reference: tuxedo-drivers src/ite_8291/ite_8291.c
+        /// Sends a direct ITE 8291 hardware animation control packet (tuxedo-drivers ite_8291).
         /// Control: 08 [power state] [anim mode] [speed] [brightness] 08 [behaviour] 00
         /// </summary>
         public static bool SetHardwareAnimation(byte animMode, byte speed = 0x05, byte brightness = 0x32, byte behaviour = 0x00)
         {
-            byte[] packet = new byte[]
-            {
-                0x08,       // Report ID
-                0x02,       // Power state: On
-                animMode,   // Animation mode
-                speed,      // Speed (0x01 fast to 0x0A slow)
-                brightness, // Brightness (0x00 - 0x32)
-                0x08,       // Protocol signature
-                behaviour,  // Direction or interactive key mode
-                0x00        // Padding
-            };
-
+            byte[] packet = new byte[] { 0x08, 0x02, animMode, speed, brightness, 0x08, behaviour, 0x00 };
             return SendFeatureReport(packet);
         }
 
-        /// <summary>
-        /// Programs one of the 7 custom palette color slots in the ITE 8291 chip.
-        /// Protocol: 14 00 [slot 1-7] [red] [green] [blue] 00 00
-        /// </summary>
-        public static bool SetCustomColorSlot(byte slot, byte r, byte g, byte b)
-        {
-            if (slot < 1 || slot > 7) return false;
-
-            byte[] packet = new byte[]
-            {
-                0x14, // Report ID
-                0x00,
-                slot, // Color define slot (1-7)
-                r,
-                g,
-                b,
-                0x00,
-                0x00
-            };
-
-            return SendFeatureReport(packet);
-        }
-
-        /// <summary>
-        /// Sets hardware animation on ITE 829x (6-byte protocol with Report ID 0xCC).
-        /// Protocol reference: tuxedo-drivers src/ite_829x/ite_829x.c
-        /// </summary>
-        public static bool Set829xAnimation(byte cmd, byte d0, byte d1, byte d2, byte d3)
-        {
-            byte[] packet = new byte[]
-            {
-                0xCC, // Report ID
-                cmd,
-                d0,
-                d1,
-                d2,
-                d3
-            };
-
-            return SendFeatureReport(packet);
-        }
-
-        /// <summary>
-        /// Powers down the ITE chip hardware backlight.
-        /// </summary>
         public static bool TurnOff()
         {
             byte[] packet = new byte[] { 0x08, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };

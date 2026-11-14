@@ -1,18 +1,89 @@
 using System;
 using BSCustomClevoController.Utility;
 
-
-using static BSCustomClevoController.Utility.Structs;
-
 namespace BSCustomClevoController.Controls
 {
-    internal class Fan
+    public struct FanStatus
     {
-        private static bool? _hasThirdFan;
+        public Fan.Mode Mode;
+        public int Offset;
+        public FanInfo Fan_CPU;
+        public FanInfo Fan_GPU1;
+        public FanInfo Fan_GPU2;
+        public bool HasThirdFan;
+    }
 
-        /// <summary>
-        /// Indicates if the laptop motherboard and EC expose a 3rd cooling fan (GPU 2 Fan).
-        /// </summary>
+    public struct FanInfo
+    {
+        public byte T1;
+        public byte T2;
+        public byte T3;
+        public byte T4;
+        public byte T2_Default;
+        public byte T3_Default;
+        public byte D1;
+        public byte D2;
+        public byte D3;
+        public byte D4;
+        public byte D2_Default;
+        public byte D3_Default;
+        public int R12;
+        public int R23;
+        public int R34;
+        public int rpm;
+        public int remote;
+        public int percent;
+
+        public FanInfo(int T1, int D1, int T2, int D2, int T3, int D3, int T4 = 100, int D4 = 100)
+        {
+            this.T1 = (byte)T1;
+            this.T2 = (byte)T2;
+            this.T3 = (byte)T3;
+            this.T4 = (byte)T4;
+            this.D1 = (byte)D1;
+            this.D2 = (byte)D2;
+            this.D3 = (byte)D3;
+            this.D4 = (byte)D4;
+
+            T2_Default = 0;
+            T3_Default = 0;
+            D2_Default = 0;
+            D3_Default = 0;
+            R12 = 0;
+            R23 = 0;
+            R34 = 0;
+            rpm = 0;
+            remote = 0;
+            percent = 0;
+        }
+    }
+
+    public class Fan
+    {
+        private const string AppRegistryKey = @"HKEY_CURRENT_USER\Software\BSCustomClevoController";
+
+        public static event Action<Mode> FanProfileChanged;
+
+        public static FanInfo GetDefaultFanInfo()
+        {
+            return new FanInfo(40, 35, 60, 50, 80, 85, 100, 100);
+        }
+
+        private static bool? _hasThirdFan;
+        private static byte[] _fanSpeedCache;
+        private static int _fanSpeedZeroStreak;
+        private static long _lastFanToggleTicks;
+        private static readonly object _fanToggleLock = new object();
+
+        public enum Mode
+        {
+            Auto = 0,
+            Max = 1,
+            MaxQ = 5,
+            Custom = 6,
+            Unknown = 9
+        }
+
         public static bool HasThirdFan
         {
             get
@@ -30,15 +101,14 @@ namespace BSCustomClevoController.Controls
             try
             {
                 byte[] numArray = Global.insyde.GetWMIPackage(12);
-                int raw_gpu2 = numArray[7] + (numArray[6] << 8);
-                if (raw_gpu2 > 0 || numArray[22] > 0 || numArray[24] > 0)
+                int rawGpu2 = numArray[7] + (numArray[6] << 8);
+                if (rawGpu2 > 0 || numArray[22] > 0 || numArray[24] > 0)
                 {
                     return true;
                 }
 
                 byte[] wmi13 = Global.insyde.GetWMIPackage(13);
-                int fanCount = wmi13[12];
-                if (fanCount >= 3)
+                if (wmi13[12] >= 3)
                 {
                     return true;
                 }
@@ -50,8 +120,9 @@ namespace BSCustomClevoController.Controls
                     return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.DetectThirdFan", ex);
             }
             return false;
         }
@@ -62,9 +133,9 @@ namespace BSCustomClevoController.Controls
             {
                 Mode = Mode.Auto,
                 Offset = 0,
-                Fan_CPU = new FanInfo(40, 35, 60, 55, 80, 80),
-                Fan_GPU1 = new FanInfo(40, 35, 60, 55, 80, 80),
-                Fan_GPU2 = new FanInfo(40, 35, 60, 55, 80, 80),
+                Fan_CPU = GetDefaultFanInfo(),
+                Fan_GPU1 = GetDefaultFanInfo(),
+                Fan_GPU2 = GetDefaultFanInfo(),
                 HasThirdFan = HasThirdFan
             };
 
@@ -88,7 +159,7 @@ namespace BSCustomClevoController.Controls
                 }
                 else
                 {
-                    object regVal = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", null);
+                    object regVal = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "FanMode", null);
                     if (regVal is int intMode)
                     {
                         status.Mode = LookupMode((byte)intMode);
@@ -100,14 +171,15 @@ namespace BSCustomClevoController.Controls
                     }
                 }
 
-                object regOffset = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanOffset", null);
+                object regOffset = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "FanOffset", null);
                 if (regOffset is int intOffset)
                 {
                     status.Offset = (byte)Math.Max(0, Math.Min(100, intOffset));
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.GetStatus", ex);
                 status.Mode = Mode.Auto;
             }
 
@@ -130,8 +202,11 @@ namespace BSCustomClevoController.Controls
                 : 0;
         }
 
-        private static byte[] _fanSpeedCache;
-        private static int _fanSpeedZeroStreak;
+        private static int ConvertDutyToPercent(byte rawDuty)
+        {
+            int percent = (int)Math.Round(rawDuty / 255.0 * 100.0, 0);
+            return (percent == 0 && rawDuty > 0) ? rawDuty : percent;
+        }
 
         public static bool Read_FanSpeed(ref int rpm_CPU, ref int percent_CPU, ref int remote_CPU,
                                          ref int rpm_GPU, ref int percent_GPU, ref int remote_GPU,
@@ -155,37 +230,23 @@ namespace BSCustomClevoController.Controls
                     _fanSpeedCache = (byte[])array.Clone();
                 }
 
-                int rawCpu = (int)array[3] + ((int)array[2] << 8);
-                rpm_CPU = ConvertTachToRpm(rawCpu);
-                percent_CPU = (int)Math.Round((double)array[16] / 255.0 * 100.0, 0);
-                if (percent_CPU == 0 && array[16] > 0)
-                {
-                    percent_CPU = array[16];
-                }
-                remote_CPU = Global.RW_REG != null ? Global.RW_REG.CalCPUTemp(Global.RW_REG.GetTDP(), (int)array[18]) : (int)array[18];
+                rpm_CPU = ConvertTachToRpm(array[3] + (array[2] << 8));
+                percent_CPU = ConvertDutyToPercent(array[16]);
+                remote_CPU = Global.RW_REG != null ? Global.RW_REG.CalCPUTemp(Global.RW_REG.GetTDP(), array[18]) : array[18];
 
-                int rawGpu = (int)array[5] + ((int)array[4] << 8);
-                rpm_GPU = ConvertTachToRpm(rawGpu);
-                percent_GPU = (int)Math.Round((double)array[19] / 255.0 * 100.0, 0);
-                if (percent_GPU == 0 && array[19] > 0)
-                {
-                    percent_GPU = array[19];
-                }
-                remote_GPU = (int)array[21];
+                rpm_GPU = ConvertTachToRpm(array[5] + (array[4] << 8));
+                percent_GPU = ConvertDutyToPercent(array[19]);
+                remote_GPU = array[21];
 
-                int rawGpu2 = (int)array[7] + ((int)array[6] << 8);
-                rpm_GPU2 = ConvertTachToRpm(rawGpu2);
-                percent_GPU2 = (int)Math.Round((double)array[22] / 255.0 * 100.0, 0);
-                if (percent_GPU2 == 0 && array[22] > 0)
-                {
-                    percent_GPU2 = array[22];
-                }
-                remote_GPU2 = array[24] > 0 ? (int)array[24] : remote_GPU;
+                rpm_GPU2 = ConvertTachToRpm(array[7] + (array[6] << 8));
+                percent_GPU2 = ConvertDutyToPercent(array[22]);
+                remote_GPU2 = array[24] > 0 ? array[24] : remote_GPU;
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.Read_FanSpeed", ex);
                 return false;
             }
         }
@@ -194,12 +255,12 @@ namespace BSCustomClevoController.Controls
         {
             try
             {
-                _lastAntiDustTime = DateTime.UtcNow;
                 Global.insyde.SetWMI(121, 41, 1u);
                 Global.insyde.SetAPPData(4, 80, 1, new byte[] { 1 });
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.AntiDust", ex);
             }
         }
 
@@ -228,75 +289,34 @@ namespace BSCustomClevoController.Controls
                     return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.IsAntiDustSupported", ex);
             }
             return false;
         }
 
-        public static bool IsMaxQSupported()
-        {
-            try
-            {
-                if (Global.support_bit != null && Global.support_bit.MaxQ)
-                {
-                    return true;
-                }
-
-                if (Global.RW_REG != null && Global.RW_REG.SupportMaxqFan)
-                {
-                    return true;
-                }
-
-                byte[] appData = Global.insyde.GetAPPData(4, 0, 256);
-                if (appData != null && appData.Length > 5)
-                {
-                    if (appData[4] == 5 || appData[5] == 5)
-                    {
-                        if (Global.support_bit != null)
-                        {
-                            Global.support_bit.MaxQ = true;
-                        }
-                        return true;
-                    }
-                }
-
-                byte[] wmi13 = Global.insyde.GetWMIPackage(13);
-                if (wmi13 != null && wmi13.Length > 14)
-                {
-                    if (wmi13[14] == 5)
-                    {
-                        if (Global.support_bit != null)
-                        {
-                            Global.support_bit.MaxQ = true;
-                        }
-                        return true;
-                    }
-                }
-            }
-            catch
-            {
-            }
-            return false;
-        }
+        public static bool IsMaxQSupported() => Capabilities.IsMaxQSupported();
 
         public static void SetOffset(byte offset)
         {
             try
             {
-                int data = (int)Math.Round(255.0 * ((double)offset / 100.0), 0);
+                int data = (int)Math.Round(255.0 * (offset / 100.0), 0);
                 Global.insyde.SetWMI(121, 14, (uint)data);
                 Global.insyde.SetAPPData(4, 7, 1, new byte[] { offset });
                 try
                 {
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanOffset", (int)offset, Microsoft.Win32.RegistryValueKind.DWord);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "FanOffset", (int)offset, Microsoft.Win32.RegistryValueKind.DWord);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Fan.SetOffset.Registry", ex);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetOffset", ex);
             }
         }
 
@@ -304,26 +324,24 @@ namespace BSCustomClevoController.Controls
         {
             try
             {
-                _lastFanToggleTime = DateTime.UtcNow;
+                _lastFanToggleTicks = MonotonicClock.NowTicks();
                 SystemPreferences.UpdateHardwareFanModeCache(mode);
                 Global.insyde.SetWMI(121, 1, (uint)mode);
                 Global.insyde.SetAPPData(4, 5, 1, new byte[] { (byte)mode });
                 try
                 {
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", (int)mode);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "FanMode", (int)mode);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Fan.SetMode.Registry", ex);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetMode", ex);
             }
         }
-
-        private static DateTime _lastFanToggleTime = DateTime.MinValue;
-        private static DateTime _lastAntiDustTime = DateTime.MinValue;
-        private static readonly object _fanToggleLock = new object();
 
         public static void SetProgramModeOnly(Mode mode)
         {
@@ -331,36 +349,20 @@ namespace BSCustomClevoController.Controls
             {
                 Global.insyde.SetAPPData(4, 5, 1, new byte[] { (byte)mode });
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetProgramModeOnly.AppData", ex);
             }
             try
             {
-                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", (int)mode, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(AppRegistryKey, "FanMode", (int)mode, Microsoft.Win32.RegistryValueKind.DWord);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetProgramModeOnly.Registry", ex);
             }
             SystemPreferences.UpdateHardwareFanModeCache(mode);
         }
-
-        public static Mode GetSavedSoftwareFanMode()
-        {
-            try
-            {
-                object regVal = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", null);
-                if (regVal is int intMode)
-                {
-                    return LookupMode((byte)intMode);
-                }
-            }
-            catch
-            {
-            }
-            return Mode.Auto;
-        }
-
-        public static DateTime LastFanToggleTime => _lastFanToggleTime;
 
         public static Mode GetHardwareFanMode()
         {
@@ -369,22 +371,18 @@ namespace BSCustomClevoController.Controls
                 byte[] input = new byte[256];
                 byte[] ram1 = new byte[256];
                 input[0] = 3;
-                if (Utility.InsydeDriver.SetDCHU_DataEx(4, input, 256, ref ram1[0]) > 0)
+                if (InsydeDriver.SetDCHU_DataEx(4, input, 256, ref ram1[0]) > 0)
                 {
                     byte oem4 = ram1[0xCC];
-                    if (oem4 == 0xF3)
-                    {
-                        return Mode.Max;
-                    }
-                    if (oem4 == 0xF2 || oem4 == 0x6B)
-                    {
-                        return Mode.Auto;
-                    }
+                    if (oem4 == 0xF3) return Mode.Max;
+                    if (oem4 == 0xF2 || oem4 == 0x6B) return Mode.Auto;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.GetHardwareFanMode.Dchu", ex);
             }
+
             try
             {
                 byte[] appData = Global.insyde.GetAPPData(4, 0, 256);
@@ -393,8 +391,9 @@ namespace BSCustomClevoController.Controls
                     return LookupMode(appData[5]);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.GetHardwareFanMode.AppData", ex);
             }
             return Mode.Unknown;
         }
@@ -408,11 +407,11 @@ namespace BSCustomClevoController.Controls
 
             lock (_fanToggleLock)
             {
-                if (DateTime.UtcNow < _lastFanToggleTime.AddMilliseconds(350))
+                if (MonotonicClock.ElapsedMs(_lastFanToggleTicks) < 350.0)
                 {
                     return;
                 }
-                _lastFanToggleTime = DateTime.UtcNow;
+                _lastFanToggleTicks = MonotonicClock.NowTicks();
 
                 try
                 {
@@ -423,21 +422,18 @@ namespace BSCustomClevoController.Controls
                         OsdOverlay.ShowFan(targetMode);
                     }
 
-                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
-                    {
-                        var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                        mainWin?.SyncFanProfileUI(targetMode);
-                    }));
+                    FanProfileChanged?.Invoke(targetMode);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Fan.SyncFanFromHardware", ex);
                 }
             }
         }
 
         public static void CheckAndSyncFanFromHardware(bool forceOsd = false)
         {
-            if (DateTime.UtcNow < _lastFanToggleTime.AddMilliseconds(350))
+            if (MonotonicClock.ElapsedMs(_lastFanToggleTicks) < 350.0)
             {
                 return;
             }
@@ -445,7 +441,7 @@ namespace BSCustomClevoController.Controls
             Mode hwMode = GetHardwareFanMode();
             if (hwMode == Mode.Auto || hwMode == Mode.Max)
             {
-                object regVal = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", null);
+                object regVal = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "FanMode", null);
                 Mode currentSwMode = (regVal is int intMode) ? LookupMode((byte)intMode) : Mode.Auto;
 
                 if (forceOsd || hwMode != currentSwMode)
@@ -459,30 +455,22 @@ namespace BSCustomClevoController.Controls
         {
             lock (_fanToggleLock)
             {
-                if (DateTime.UtcNow < _lastFanToggleTime.AddMilliseconds(350))
+                if (MonotonicClock.ElapsedMs(_lastFanToggleTicks) < 350.0)
                 {
                     return;
                 }
-                _lastFanToggleTime = DateTime.UtcNow;
+                _lastFanToggleTicks = MonotonicClock.NowTicks();
 
                 try
                 {
                     Mode hwMode = GetHardwareFanMode();
-                    object regVal = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "FanMode", null);
+                    object regVal = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "FanMode", null);
                     Mode currentSwMode = (regVal is int intMode) ? LookupMode((byte)intMode) : Mode.Auto;
 
                     Mode targetMode;
-                    if (hwMode == Mode.Auto || hwMode == Mode.Max)
+                    if ((hwMode == Mode.Auto || hwMode == Mode.Max) && hwMode != currentSwMode)
                     {
-                        if (hwMode != currentSwMode)
-                        {
-                            targetMode = hwMode;
-                        }
-                        else
-                        {
-                            targetMode = (currentSwMode == Mode.Max) ? Mode.Auto : Mode.Max;
-                            SetMode(targetMode);
-                        }
+                        targetMode = hwMode;
                     }
                     else
                     {
@@ -493,44 +481,16 @@ namespace BSCustomClevoController.Controls
                     SetProgramModeOnly(targetMode);
                     SystemPreferences.UpdateHardwareFanModeCache(targetMode);
                     OsdOverlay.ShowFan(targetMode);
-
-                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
-                    {
-                        var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                        mainWin?.SyncFanProfileUI(targetMode);
-                    }));
+                    FanProfileChanged?.Invoke(targetMode);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Fan.ToggleAutoMaxFan", ex);
                 }
             }
         }
 
-        public static void ApplyAutoFanFromHardware()
-        {
-            SyncFanFromHardware(Mode.Auto, showOsd: true);
-        }
-
-        public static void ApplyMaxFanFromHardware()
-        {
-            SyncFanFromHardware(Mode.Max, showOsd: true);
-        }
-
-        public static void ToggleMaxFan()
-        {
-            ToggleAutoMaxFan();
-        }
-
-        public enum Mode
-        {
-            Auto = 0,
-            Max = 1,
-            MaxQ = 5,
-            Custom = 6,
-            Unknown = 9
-        }
-
-        static Mode LookupMode(byte mode)
+        private static Mode LookupMode(byte mode)
         {
             switch (mode)
             {
@@ -540,6 +500,76 @@ namespace BSCustomClevoController.Controls
                 case 6: return Mode.Custom;
                 default: return Mode.Auto;
             }
+        }
+
+        private static int ComputeSlope(byte dStart, byte dEnd, byte tStart, byte tEnd)
+        {
+            return (int)Math.Round((dEnd - dStart) / (double)Math.Max(1, tEnd - tStart) * 2.55 * 16.0, 0);
+        }
+
+        private static void WriteWmiFanSlopes(byte[] buffer, int baseOffset, FanInfo info)
+        {
+            int r12 = ComputeSlope(info.D1, info.D2, info.T1, info.T2);
+            int r23 = ComputeSlope(info.D2, info.D3, info.T2, info.T3);
+            int r34 = ComputeSlope(info.D3, info.D4, info.T3, info.T4);
+
+            buffer[baseOffset] = (byte)(r12 >> 8);
+            buffer[baseOffset + 1] = (byte)(r12 & 255);
+            buffer[baseOffset + 2] = (byte)(r23 >> 8);
+            buffer[baseOffset + 3] = (byte)(r23 & 255);
+            buffer[baseOffset + 4] = (byte)(r34 >> 8);
+            buffer[baseOffset + 5] = (byte)(r34 & 255);
+        }
+
+        private static void WriteAppFanChannel(byte[] buffer, int baseOffset, FanInfo info)
+        {
+            buffer[baseOffset] = info.D1;
+            buffer[baseOffset + 1] = info.D2;
+            buffer[baseOffset + 2] = info.D3;
+            buffer[baseOffset + 3] = info.D4;
+            buffer[baseOffset + 4] = info.D2;
+            buffer[baseOffset + 5] = info.D3;
+            buffer[baseOffset + 6] = info.T1;
+            buffer[baseOffset + 7] = info.T2;
+            buffer[baseOffset + 8] = info.T3;
+            buffer[baseOffset + 9] = info.T4;
+            buffer[baseOffset + 10] = info.T2;
+            buffer[baseOffset + 11] = info.T3;
+
+            int r12 = ComputeSlope(info.D1, info.D2, info.T1, info.T2);
+            int r23 = ComputeSlope(info.D2, info.D3, info.T2, info.T3);
+            int r34 = ComputeSlope(info.D3, info.D4, info.T3, info.T4);
+
+            buffer[baseOffset + 12] = (byte)(r12 & 255);
+            buffer[baseOffset + 13] = (byte)(r12 >> 8);
+            buffer[baseOffset + 14] = (byte)(r23 & 255);
+            buffer[baseOffset + 15] = (byte)(r23 >> 8);
+            buffer[baseOffset + 16] = (byte)(r34 & 255);
+            buffer[baseOffset + 17] = (byte)(r34 >> 8);
+        }
+
+        private static void ReadAppFanChannel(byte[] array, int baseOffset, ref FanInfo info)
+        {
+            if (array[baseOffset + 6] <= 0 || array[baseOffset + 7] <= 0)
+            {
+                return;
+            }
+
+            info.D1 = (array[baseOffset + 3] > 0) ? array[baseOffset] : (array[baseOffset] > 0 ? array[baseOffset] : (byte)35);
+            info.D2 = array[baseOffset + 1] > 0 ? array[baseOffset + 1] : (byte)50;
+            info.D3 = array[baseOffset + 2] > 0 ? array[baseOffset + 2] : (byte)85;
+            info.D4 = array[baseOffset + 3] > 0 ? array[baseOffset + 3] : (byte)100;
+            info.D2_Default = array[baseOffset + 4];
+            info.D3_Default = array[baseOffset + 5];
+            info.T1 = array[baseOffset + 6] > 0 ? array[baseOffset + 6] : (byte)40;
+            info.T2 = array[baseOffset + 7] > 0 ? array[baseOffset + 7] : (byte)60;
+            info.T3 = array[baseOffset + 8] > 0 ? array[baseOffset + 8] : (byte)80;
+            info.T4 = array[baseOffset + 9] > 0 ? array[baseOffset + 9] : (byte)100;
+            info.T2_Default = array[baseOffset + 10];
+            info.T3_Default = array[baseOffset + 11];
+            info.R12 = (array[baseOffset + 13] << 8) + array[baseOffset + 12];
+            info.R23 = (array[baseOffset + 15] << 8) + array[baseOffset + 14];
+            info.R34 = (array[baseOffset + 17] << 8) + array[baseOffset + 16];
         }
 
         public static void SetCustomFanTable(FanInfo CPU, FanInfo GPU)
@@ -560,203 +590,60 @@ namespace BSCustomClevoController.Controls
                 buffer[12] = GPU.T3;
                 buffer[13] = (byte)Math.Round(GPU.D3 / 100.0 * 255.0, 0);
 
-                int CPU_R12 = (int)Math.Round((CPU.D2 - CPU.D1) / (double)Math.Max(1, CPU.T2 - CPU.T1) * 2.55 * 16.0, 0);
-                int CPU_R23 = (int)Math.Round((CPU.D3 - CPU.D2) / (double)Math.Max(1, CPU.T3 - CPU.T2) * 2.55 * 16.0, 0);
-                int CPU_R34 = (int)Math.Round((CPU.D4 - CPU.D3) / (double)Math.Max(1, CPU.T4 - CPU.T3) * 2.55 * 16.0, 0);
-
-                int GPU_R12 = (int)Math.Round((GPU.D2 - GPU.D1) / (double)Math.Max(1, GPU.T2 - GPU.T1) * 2.55 * 16.0, 0);
-                int GPU_R23 = (int)Math.Round((GPU.D3 - GPU.D2) / (double)Math.Max(1, GPU.T3 - GPU.T2) * 2.55 * 16.0, 0);
-                int GPU_R34 = (int)Math.Round((GPU.D4 - GPU.D3) / (double)Math.Max(1, GPU.T4 - GPU.T3) * 2.55 * 16.0, 0);
-
-                buffer[14] = (byte)(CPU_R12 >> 8);
-                buffer[15] = (byte)(CPU_R12 & 255);
-                buffer[16] = (byte)(CPU_R23 >> 8);
-                buffer[17] = (byte)(CPU_R23 & 255);
-                buffer[18] = (byte)(CPU_R34 >> 8);
-                buffer[19] = (byte)(CPU_R34 & 255);
-
-                buffer[20] = (byte)(GPU_R12 >> 8);
-                buffer[21] = (byte)(GPU_R12 & 255);
-                buffer[22] = (byte)(GPU_R23 >> 8);
-                buffer[23] = (byte)(GPU_R23 & 255);
-                buffer[24] = (byte)(GPU_R34 >> 8);
-                buffer[25] = (byte)(GPU_R34 & 255);
-
-                buffer[26] = (byte)(GPU_R12 >> 8);
-                buffer[27] = (byte)(GPU_R12 & 255);
-                buffer[28] = (byte)(GPU_R23 >> 8);
-                buffer[29] = (byte)(GPU_R23 & 255);
-                buffer[30] = (byte)(GPU_R34 >> 8);
-                buffer[31] = (byte)(GPU_R34 & 255);
+                WriteWmiFanSlopes(buffer, 14, CPU);
+                WriteWmiFanSlopes(buffer, 20, GPU);
+                WriteWmiFanSlopes(buffer, 26, GPU);
 
                 Global.insyde.SetWMIPackage(14, buffer);
                 SetMode(Mode.Custom);
                 SetFanInfo(CPU, GPU);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetCustomFanTable", ex);
             }
         }
 
-        static void SetFanInfo(FanInfo CPU, FanInfo GPU)
+        private static void SetFanInfo(FanInfo CPU, FanInfo GPU)
         {
             try
             {
                 byte[] currentAppData = Global.insyde.GetAPPData(4, 0, 256);
                 byte offsetVal = currentAppData[7];
-                byte modeVal = (byte)Mode.Custom;
 
                 byte[] buffer = new byte[256];
                 buffer[0] = 3;
-                buffer[1] = 0;
-                buffer[2] = 0;
-                buffer[3] = 0;
                 buffer[4] = 8;
-                buffer[5] = modeVal;
+                buffer[5] = (byte)Mode.Custom;
                 buffer[6] = 1;
                 buffer[7] = offsetVal;
 
-                buffer[16] = CPU.D1;
-                buffer[17] = CPU.D2;
-                buffer[18] = CPU.D3;
-                buffer[19] = CPU.D4;
-                buffer[20] = CPU.D2;
-                buffer[21] = CPU.D3;
-                buffer[22] = CPU.T1;
-                buffer[23] = CPU.T2;
-                buffer[24] = CPU.T3;
-                buffer[25] = CPU.T4;
-                buffer[26] = CPU.T2;
-                buffer[27] = CPU.T3;
-
-                int CPU_R12 = (int)Math.Round((CPU.D2 - CPU.D1) / (double)Math.Max(1, CPU.T2 - CPU.T1) * 2.55 * 16.0, 0);
-                int CPU_R23 = (int)Math.Round((CPU.D3 - CPU.D2) / (double)Math.Max(1, CPU.T3 - CPU.T2) * 2.55 * 16.0, 0);
-                int CPU_R34 = (int)Math.Round((CPU.D4 - CPU.D3) / (double)Math.Max(1, CPU.T4 - CPU.T3) * 2.55 * 16.0, 0);
-
-                buffer[28] = (byte)(CPU_R12 & 255);
-                buffer[29] = (byte)(CPU_R12 >> 8);
-                buffer[30] = (byte)(CPU_R23 & 255);
-                buffer[31] = (byte)(CPU_R23 >> 8);
-                buffer[32] = (byte)(CPU_R34 & 255);
-                buffer[33] = (byte)(CPU_R34 >> 8);
-
-                buffer[34] = GPU.D1;
-                buffer[35] = GPU.D2;
-                buffer[36] = GPU.D3;
-                buffer[37] = GPU.D4;
-                buffer[38] = GPU.D2;
-                buffer[39] = GPU.D3;
-                buffer[40] = GPU.T1;
-                buffer[41] = GPU.T2;
-                buffer[42] = GPU.T3;
-                buffer[43] = GPU.T4;
-                buffer[44] = GPU.T2;
-                buffer[45] = GPU.T3;
-
-                int GPU_R12 = (int)Math.Round((GPU.D2 - GPU.D1) / (double)Math.Max(1, GPU.T2 - GPU.T1) * 2.55 * 16.0, 0);
-                int GPU_R23 = (int)Math.Round((GPU.D3 - GPU.D2) / (double)Math.Max(1, GPU.T3 - GPU.T2) * 2.55 * 16.0, 0);
-                int GPU_R34 = (int)Math.Round((GPU.D4 - GPU.D3) / (double)Math.Max(1, GPU.T4 - GPU.T3) * 2.55 * 16.0, 0);
-
-                buffer[46] = (byte)(GPU_R12 & 255);
-                buffer[47] = (byte)(GPU_R12 >> 8);
-                buffer[48] = (byte)(GPU_R23 & 255);
-                buffer[49] = (byte)(GPU_R23 >> 8);
-                buffer[50] = (byte)(GPU_R34 & 255);
-                buffer[51] = (byte)(GPU_R34 >> 8);
-
-                buffer[52] = GPU.D1;
-                buffer[53] = GPU.D2;
-                buffer[54] = GPU.D3;
-                buffer[55] = GPU.D4;
-                buffer[56] = GPU.D2;
-                buffer[57] = GPU.D3;
-                buffer[58] = GPU.T1;
-                buffer[59] = GPU.T2;
-                buffer[60] = GPU.T3;
-                buffer[61] = GPU.T4;
-                buffer[62] = GPU.T2;
-                buffer[63] = GPU.T3;
-
-                buffer[64] = (byte)(GPU_R12 & 255);
-                buffer[65] = (byte)(GPU_R12 >> 8);
-                buffer[66] = (byte)(GPU_R23 & 255);
-                buffer[67] = (byte)(GPU_R23 >> 8);
-                buffer[68] = (byte)(GPU_R34 & 255);
-                buffer[69] = (byte)(GPU_R34 >> 8);
+                WriteAppFanChannel(buffer, 16, CPU);
+                WriteAppFanChannel(buffer, 34, GPU);
+                WriteAppFanChannel(buffer, 52, GPU);
 
                 Global.insyde.SetAPPData(4, 0, 256, buffer);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.SetFanInfo", ex);
             }
         }
 
-        static void Read_FanInfo(byte[] array, ref FanInfo Fan_CPU, ref FanInfo Fan_GPU1, ref FanInfo Fan_GPU2)
+        private static void Read_FanInfo(byte[] array, ref FanInfo Fan_CPU, ref FanInfo Fan_GPU1, ref FanInfo Fan_GPU2)
         {
             try
             {
                 if (array != null && array.Length >= 70)
                 {
-                    if (array[22] > 0 && array[23] > 0)
-                    {
-                        Fan_CPU.D1 = (array[19] > 0) ? array[16] : (array[16] > 0 ? array[16] : (byte)35);
-                        Fan_CPU.D2 = array[17] > 0 ? array[17] : (byte)50;
-                        Fan_CPU.D3 = array[18] > 0 ? array[18] : (byte)85;
-                        Fan_CPU.D4 = array[19] > 0 ? array[19] : (byte)100;
-                        Fan_CPU.D2_Default = array[20];
-                        Fan_CPU.D3_Default = array[21];
-                        Fan_CPU.T1 = array[22] > 0 ? array[22] : (byte)40;
-                        Fan_CPU.T2 = array[23] > 0 ? array[23] : (byte)60;
-                        Fan_CPU.T3 = array[24] > 0 ? array[24] : (byte)80;
-                        Fan_CPU.T4 = array[25] > 0 ? array[25] : (byte)100;
-                        Fan_CPU.T2_Default = array[26];
-                        Fan_CPU.T3_Default = array[27];
-                        Fan_CPU.R12 = (array[29] << 8) + array[28];
-                        Fan_CPU.R23 = (array[31] << 8) + array[30];
-                        Fan_CPU.R34 = (array[33] << 8) + array[32];
-                    }
-
-                    if (array[40] > 0 && array[41] > 0)
-                    {
-                        Fan_GPU1.D1 = (array[37] > 0) ? array[34] : (array[34] > 0 ? array[34] : (byte)35);
-                        Fan_GPU1.D2 = array[35] > 0 ? array[35] : (byte)50;
-                        Fan_GPU1.D3 = array[36] > 0 ? array[36] : (byte)85;
-                        Fan_GPU1.D4 = array[37] > 0 ? array[37] : (byte)100;
-                        Fan_GPU1.D2_Default = array[38];
-                        Fan_GPU1.D3_Default = array[39];
-                        Fan_GPU1.T1 = array[40] > 0 ? array[40] : (byte)40;
-                        Fan_GPU1.T2 = array[41] > 0 ? array[41] : (byte)60;
-                        Fan_GPU1.T3 = array[42] > 0 ? array[42] : (byte)80;
-                        Fan_GPU1.T4 = array[43] > 0 ? array[43] : (byte)100;
-                        Fan_GPU1.T2_Default = array[44];
-                        Fan_GPU1.T3_Default = array[45];
-                        Fan_GPU1.R12 = (array[47] << 8) + array[46];
-                        Fan_GPU1.R23 = (array[49] << 8) + array[48];
-                        Fan_GPU1.R34 = (array[51] << 8) + array[50];
-                    }
-
-                    if (array[58] > 0 && array[59] > 0)
-                    {
-                        Fan_GPU2.D1 = (array[55] > 0) ? array[52] : (array[52] > 0 ? array[52] : (byte)35);
-                        Fan_GPU2.D2 = array[53] > 0 ? array[53] : (byte)50;
-                        Fan_GPU2.D3 = array[54] > 0 ? array[54] : (byte)85;
-                        Fan_GPU2.D4 = array[55] > 0 ? array[55] : (byte)100;
-                        Fan_GPU2.D2_Default = array[56];
-                        Fan_GPU2.D3_Default = array[57];
-                        Fan_GPU2.T1 = array[58] > 0 ? array[58] : (byte)40;
-                        Fan_GPU2.T2 = array[59] > 0 ? array[59] : (byte)60;
-                        Fan_GPU2.T3 = array[60] > 0 ? array[60] : (byte)80;
-                        Fan_GPU2.T4 = array[61] > 0 ? array[61] : (byte)100;
-                        Fan_GPU2.T2_Default = array[62];
-                        Fan_GPU2.T3_Default = array[63];
-                        Fan_GPU2.R12 = (array[65] << 8) + array[64];
-                        Fan_GPU2.R23 = (array[67] << 8) + array[66];
-                        Fan_GPU2.R34 = (array[69] << 8) + array[68];
-                    }
+                    ReadAppFanChannel(array, 16, ref Fan_CPU);
+                    ReadAppFanChannel(array, 34, ref Fan_GPU1);
+                    ReadAppFanChannel(array, 52, ref Fan_GPU2);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Fan.Read_FanInfo", ex);
             }
         }
     }

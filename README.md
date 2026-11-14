@@ -1,6 +1,6 @@
 # CustomClevoController
 
-Open-source control center for Clevo and ODM laptops (Sager, Schenker, XMG, System76, and compatible chassis). Replaces OEM Clevo Control Center 3.0 to manage fan curves, power profiles, battery charge limits, and keyboard backlighting directly through the Embedded Controller (EC) and ACPI driver (`ACPI\CLV0001` / Insyde DCHU).
+Open-source control center for Clevo and ODM laptops (Sager, Schenker, XMG, System76, and compatible chassis). Replaces OEM Control Center 3.0 to manage fan curves, power profiles, battery charge limits, and keyboard backlighting directly through the Embedded Controller (EC) and ACPI driver (`ACPI\CLV0001` / Insyde DCHU).
 
 ---
 

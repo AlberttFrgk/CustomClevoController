@@ -13,7 +13,7 @@ namespace BSCustomClevoController.Utility
         private static bool _isEnabled = true;
         private static readonly object _lock = new object();
         private static string _lastOsdKey;
-        private static DateTime _lastOsdTime = DateTime.MinValue;
+        private static long _lastOsdTicks;
 
         static OsdOverlay()
         {
@@ -25,8 +25,9 @@ namespace BSCustomClevoController.Utility
                     _isEnabled = (intVal != 0);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("OsdOverlay.cctor", ex);
                 _isEnabled = true;
             }
         }
@@ -41,8 +42,9 @@ namespace BSCustomClevoController.Utility
                 {
                     Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "ShowOSD", value ? 1 : 0, RegistryValueKind.DWord);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("OsdOverlay.IsEnabled", ex);
                 }
             }
         }
@@ -55,12 +57,12 @@ namespace BSCustomClevoController.Utility
             lock (_lock)
             {
                 if (string.Equals(key, _lastOsdKey, StringComparison.Ordinal) &&
-                    DateTime.UtcNow < _lastOsdTime.AddMilliseconds(1000))
+                    MonotonicClock.ElapsedMs(_lastOsdTicks) < 1000.0)
                 {
                     return;
                 }
                 _lastOsdKey = key;
-                _lastOsdTime = DateTime.UtcNow;
+                _lastOsdTicks = MonotonicClock.NowTicks();
             }
 
             Application app = Application.Current;
@@ -86,54 +88,61 @@ namespace BSCustomClevoController.Utility
             }));
         }
 
+        private static void ShowToggle(bool on, string onImg, string offImg, string onKey, string onFallback, string offKey, string offFallback)
+        {
+            ShowInternal(
+                on ? onImg : offImg,
+                LocalizationManager.T(on ? onKey : offKey, on ? onFallback : offFallback));
+        }
+
         public static void ShowCaps(bool on)
         {
-            ShowInternal(on ? "osd_caps_on_cc40_1.png" : "osd_caps_off_cc40_1.png", on ? "CAPS LOCK ON" : "CAPS LOCK OFF");
+            ShowToggle(on, "osd_caps_on_cc40_1.png", "osd_caps_off_cc40_1.png", "OsdCapsOn", "CAPS LOCK ON", "OsdCapsOff", "CAPS LOCK OFF");
         }
 
         public static void ShowNum(bool on)
         {
-            ShowInternal(on ? "osd_num_on_cc40_1.png" : "osd_num_off_cc40_1.png", on ? "NUM LOCK ON" : "NUM LOCK OFF");
+            ShowToggle(on, "osd_num_on_cc40_1.png", "osd_num_off_cc40_1.png", "OsdNumOn", "NUM LOCK ON", "OsdNumOff", "NUM LOCK OFF");
         }
 
         public static void ShowScroll(bool on)
         {
-            ShowInternal(on ? "osd_scr_on_cc40_1.png" : "osd_scr_off_cc40_1.png", on ? "SCROLL LOCK ON" : "SCROLL LOCK OFF");
+            ShowToggle(on, "osd_scr_on_cc40_1.png", "osd_scr_off_cc40_1.png", "OsdScrollOn", "SCROLL LOCK ON", "OsdScrollOff", "SCROLL LOCK OFF");
         }
 
         public static void ShowWinKeyLock(bool locked)
         {
-            ShowInternal(locked ? "osd_winkey_lock_cc40_1.png" : "osd_winkey_unlock_cc40_1.png", locked ? "WIN KEY LOCKED" : "WIN KEY UNLOCKED");
+            ShowToggle(locked, "osd_winkey_lock_cc40_1.png", "osd_winkey_unlock_cc40_1.png", "OsdWinLockOn", "WIN KEY LOCKED", "OsdWinLockOff", "WIN KEY UNLOCKED");
         }
 
         public static void ShowTouchpad(bool enabled)
         {
-            ShowInternal(enabled ? "osd_touchpad_on_cc40_1.png" : "osd_touchpad_off_cc40_1.png", enabled ? "TOUCHPAD ON" : "TOUCHPAD OFF");
+            ShowToggle(enabled, "osd_touchpad_on_cc40_1.png", "osd_touchpad_off_cc40_1.png", "OsdTouchpadOn", "TOUCHPAD ON", "OsdTouchpadOff", "TOUCHPAD OFF");
         }
 
         public static void ShowCamera(bool enabled)
         {
-            ShowInternal(enabled ? "osd_camera_on_cc40_1.png" : "osd_camera_off_cc40_1.png", enabled ? "CAMERA ON" : "CAMERA OFF");
+            ShowToggle(enabled, "osd_camera_on_cc40_1.png", "osd_camera_off_cc40_1.png", "OsdCameraOn", "CAMERA ON", "OsdCameraOff", "CAMERA OFF");
         }
 
         public static void ShowMicrophone(bool enabled)
         {
-            ShowInternal(enabled ? "Thirdwave_MicUnmute_cc40_1.png" : "Thirdwave_MicMute_cc40_1.png", enabled ? "MICROPHONE ON" : "MICROPHONE OFF");
+            ShowToggle(enabled, "Thirdwave_MicUnmute_cc40_1.png", "Thirdwave_MicMute_cc40_1.png", "OsdMicOn", "MICROPHONE ON", "OsdMicOff", "MICROPHONE OFF");
         }
 
         public static void ShowCameraMic(bool enabled)
         {
-            ShowInternal(enabled ? "osd_cameraMic_on_cc40_1.png" : "osd_cameraMic_off_cc40_1.png", enabled ? "CAMERA & MIC ON" : "CAMERA & MIC OFF");
+            ShowToggle(enabled, "osd_cameraMic_on_cc40_1.png", "osd_cameraMic_off_cc40_1.png", "OsdCameraMicOn", "CAMERA & MIC ON", "OsdCameraMicOff", "CAMERA & MIC OFF");
         }
 
         public static void ShowAirplane(bool enabled)
         {
-            /* ShowInternal(enabled ? "osd_airplane_on_cc40_1.png" : "osd_airplane_off_cc40_1.png", enabled ? "AIRPLANE MODE ON" : "AIRPLANE MODE OFF"); */
+            /* ShowToggle(enabled, "osd_airplane_on_cc40_1.png", "osd_airplane_off_cc40_1.png", "OsdAirplaneOn", "AIRPLANE MODE ON", "OsdAirplaneOff", "AIRPLANE MODE OFF"); */
         }
 
         public static void ShowFnLock(bool locked)
         {
-            ShowInternal(locked ? "osd_Fn_lock_enable.png" : "osd_Fn_lock_disable.png", locked ? "FN LOCK ON" : "FN LOCK OFF");
+            ShowToggle(locked, "osd_Fn_lock_enable.png", "osd_Fn_lock_disable.png", "OsdFnLockOn", "FN LOCK ON", "OsdFnLockOff", "FN LOCK OFF");
         }
 
         public static void ShowBacklight(int level)
@@ -145,27 +154,40 @@ namespace BSCustomClevoController.Utility
             else
             {
                 int imgIdx = Math.Min(4, Math.Max(1, level));
-                ShowInternal(string.Format("osd_backlight_{0}_cc40_1.png", imgIdx), $"KEYBOARD\nBACKLIGHT {imgIdx * 25}%");
+                string pattern = LocalizationManager.T("OsdBacklightLevelFmt", "KEYBOARD\nBACKLIGHT {0}%");
+                ShowInternal(
+                    string.Format("osd_backlight_{0}_cc40_1.png", imgIdx),
+                    string.Format(LocalizationManager.CurrentCulture, pattern, imgIdx * 25));
             }
         }
 
         public static void ShowBacklightToggle(bool isOn)
         {
-            ShowInternal(
-                isOn ? "osd_backlight_on_cc40_1.png" : "osd_backlight_off_cc40_1.png",
-                isOn ? "KEYBOARD\nBACKLIGHT ON" : "KEYBOARD\nBACKLIGHT OFF");
+            ShowToggle(isOn, "osd_backlight_on_cc40_1.png", "osd_backlight_off_cc40_1.png", "OsdBacklightOn", "KEYBOARD\nBACKLIGHT ON", "OsdBacklightOff", "KEYBOARD\nBACKLIGHT OFF");
         }
 
         public static void ShowBacklightColor(string colorName)
         {
-            ShowInternal("osd_backlight_on_cc40_1.png", $"KEYBOARD\nCOLOR {colorName.ToUpper()}");
+            string localizedColor = string.Empty;
+            if (!string.IsNullOrWhiteSpace(colorName))
+            {
+                string trimmed = colorName.Trim();
+                string normalized = char.ToUpperInvariant(trimmed[0]) + trimmed.Substring(1).ToLowerInvariant();
+                localizedColor = LocalizationManager.ToUpper(
+                    LocalizationManager.T("KbColor" + normalized, trimmed));
+            }
+
+            string pattern = LocalizationManager.T("OsdBacklightColorFmt", "KEYBOARD\nCOLOR {0}");
+            ShowInternal(
+                "osd_backlight_on_cc40_1.png",
+                string.Format(LocalizationManager.CurrentCulture, pattern, localizedColor));
         }
 
         public static void ShowBacklightStep(bool isHigh)
         {
             ShowInternal(
                 isHigh ? "osd_backlight_high_cc40_1.png" : "osd_backlight_low_cc40_1.png",
-                "KEYBOARD\nBACKLIGHT");
+                LocalizationManager.T("OsdBacklight", "KEYBOARD\nBACKLIGHT"));
         }
 
         public static void ShowFan(bool isMax)
@@ -175,54 +197,71 @@ namespace BSCustomClevoController.Utility
 
         internal static void ShowFan(Fan.Mode mode)
         {
+            string img;
+            string key;
+            string fallback;
             switch (mode)
             {
                 case Fan.Mode.Max:
-                    ShowInternal("osd_fan_speed_max_cc40_1.png", "MAX FAN");
+                    img = "osd_fan_speed_max_cc40_1.png";
+                    key = "OsdFanMax";
+                    fallback = "MAX FAN";
                     break;
                 case Fan.Mode.MaxQ:
-                    ShowInternal("osd_fan_speed_MaxQ_cc40_1.png", "QUIET FAN");
+                    img = "osd_fan_speed_MaxQ_cc40_1.png";
+                    key = "OsdFanQuiet";
+                    fallback = "QUIET FAN";
                     break;
                 case Fan.Mode.Custom:
-                    ShowInternal("osd_fan_speed_Custom_cc40_1.png", "CUSTOM FAN");
+                    img = "osd_fan_speed_Custom_cc40_1.png";
+                    key = "OsdFanCustom";
+                    fallback = "CUSTOM FAN";
                     break;
                 case Fan.Mode.Auto:
                 default:
-                    ShowInternal("osd_fan_speed_auto_cc40_1.png", "AUTO FAN");
+                    img = "osd_fan_speed_auto_cc40_1.png";
+                    key = "OsdFanAuto";
+                    fallback = "AUTO FAN";
                     break;
             }
+            ShowInternal(img, LocalizationManager.T(key, fallback));
         }
 
         public static void ShowFanAntiDust()
         {
-            ShowInternal("osd_fan_speed_AntiDustRuning_cc40_1.png", "ANTI-DUST FAN");
+            ShowInternal("osd_fan_speed_AntiDustRuning_cc40_1.png", LocalizationManager.T("OsdFanAntiDust", "ANTI-DUST FAN"));
         }
 
         public static void ShowPowerMode(PowerMode.Mode mode)
         {
             string img;
-            string text;
+            string key;
+            string fallback;
             switch (mode)
             {
                 case PowerMode.Mode.Quiet:
                     img = "osd_quiet2_cc40_1.png";
-                    text = "QUIET";
+                    key = "OsdPowerQuiet";
+                    fallback = "QUIET";
                     break;
                 case PowerMode.Mode.Powersaving:
                     img = "osd_powerSaving2_cc40_1.png";
-                    text = "POWER SAVER";
+                    key = "OsdPowerSaver";
+                    fallback = "POWER SAVER";
                     break;
                 case PowerMode.Mode.Performance:
                     img = "osd_peformance2_cc40_1.png";
-                    text = "PERFORMANCE";
+                    key = "OsdPowerPerformance";
+                    fallback = "PERFORMANCE";
                     break;
                 case PowerMode.Mode.Entertainment:
                 default:
                     img = "osd_entetainment2_cc40_1.png";
-                    text = "ENTERTAINMENT";
+                    key = "OsdPowerEntertainment";
+                    fallback = "ENTERTAINMENT";
                     break;
             }
-            ShowInternal(img, text);
+            ShowInternal(img, LocalizationManager.T(key, fallback));
         }
     }
 }

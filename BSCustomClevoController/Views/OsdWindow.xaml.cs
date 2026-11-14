@@ -1,28 +1,16 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Views
 {
     public partial class OsdWindow : Window
     {
-        [DllImport("user32.dll")]
-        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-        [DllImport("user32.dll")]
-        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-        private const int GWL_EXSTYLE = -20;
-        private const int WS_EX_NOACTIVATE = 0x08000000;
-        private const int WS_EX_TOOLWINDOW = 0x00000080;
-        private const int WS_EX_TRANSPARENT = 0x00000020;
-        private const int WS_EX_TOPMOST = 0x00000008;
-
         private readonly DispatcherTimer _hideTimer;
         private int _displaySequence = 0;
 
@@ -42,8 +30,11 @@ namespace BSCustomClevoController.Views
             base.OnSourceInitialized(e);
 
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-            SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_TOPMOST);
+            int exStyle = NativeMethods.GetWindowLong(hwnd, NativeMethods.GWL_EXSTYLE);
+            NativeMethods.SetWindowLong(
+                hwnd,
+                NativeMethods.GWL_EXSTYLE,
+                exStyle | NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_TRANSPARENT | NativeMethods.WS_EX_TOPMOST);
         }
 
         public void Display(string imageName, string text)
@@ -74,13 +65,13 @@ namespace BSCustomClevoController.Views
                             OsdIcon.Source = new BitmapImage(new Uri(localPath, UriKind.Absolute));
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        AppLogger.Log("OsdWindow.LoadIcon", ex);
                     }
                 }
             }
 
-            // Position at bottom center, exactly matching native Clevo FnKey OSD
             Rect workArea = SystemParameters.WorkArea;
             this.Left = workArea.Left + (workArea.Width - this.Width) / 2;
 

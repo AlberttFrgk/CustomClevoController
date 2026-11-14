@@ -14,13 +14,11 @@
         WindowStartupLocation="Manual">
 
     <Grid>
-        <!-- Card Container: translucent black, square corners, no bright border -->
         <Border Background="#CC000000"
                 BorderThickness="0"
                 CornerRadius="0"
                 SnapsToDevicePixels="True">
             <Grid>
-                <!-- Icon: centered horizontally, 24px from top (30px at 120 DPI), 77px high (96px at 120 DPI) -->
                 <Image x:Name="OsdIcon"
                        Height="77"
                        MaxWidth="184"
@@ -30,10 +28,9 @@
                        VerticalAlignment="Top"
                        RenderOptions.BitmapScalingMode="HighQuality" />
 
-                <!-- Status Text: Segoe UI normal weight in White, vertically centered in lower half -->
                 <Grid Margin="4,101,4,0" Height="83" VerticalAlignment="Top">
                     <TextBlock x:Name="OsdText"
-                               Text="STATUS"
+                               Text="{DynamicResource Loc.OsdDefaultStatus}"
                                FontSize="14"
                                FontWeight="Normal"
                                FontFamily="Segoe UI"

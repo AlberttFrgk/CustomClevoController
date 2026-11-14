@@ -3,39 +3,22 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Navigation;
 using BSCustomClevoController.Controls;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController
 {
     public partial class MainWindow : MetroWindow
     {
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern int RegisterWindowMessage(string lpString);
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool ChangeWindowMessageFilter(int message, int dwFlag);
-
-        private const int MSGFLT_ADD = 1;
-
-        private const int SW_RESTORE = 9;
-
         private int _clevoMsg;
         private int _clevoWmiMsg;
         private bool _startMinimized;
-        private DateTime _lastTouchpadToggleTime = DateTime.MinValue;
+        private long _lastTouchpadToggleTicks;
         private readonly Frame _frame;
         private NotifyIcon _notifyIcon;
         private readonly System.Collections.Generic.Dictionary<string, Page> _pageCache =
@@ -44,19 +27,20 @@ namespace BSCustomClevoController
         public MainWindow()
         {
             InitializeComponent();
+            SubscribeControlEvents();
 
             Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("BSCustomClevoController.Assets.main_icon.ico");
             _notifyIcon = new NotifyIcon
             {
                 Icon = new Icon(stream),
-                Text = "Custom Clevo Controller",
+                Text = LocalizationManager.T("AppTitle", "Clevo Control Center"),
                 Visible = true
             };
 
-            // Apply stock defaults for first-time users or restore saved hardware settings on boot
             Utility.SystemPreferences.InitializeHardwareOnStartup();
 
-            UpdateTrayTooltip(Controls.PowerMode.GetStatus().ToString());
+            _lastPowerMode = Controls.PowerMode.GetStatus();
+            UpdateTrayTooltip(GetPowerModeDisplayName(_lastPowerMode));
 
             Utility.SystemPreferences.Initialize();
 
@@ -64,27 +48,62 @@ namespace BSCustomClevoController
 
             _notifyIcon.ContextMenuStrip = new ContextMenuStrip();
 
-            var perfProfileMenu = new ToolStripMenuItem("Performance Profile");
-            var quietItem = new ToolStripMenuItem("Quiet", null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Quiet));
-            var powerSaveItem = new ToolStripMenuItem("Power Saver", null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Powersaving));
-            var entertainmentItem = new ToolStripMenuItem("Entertainment", null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Entertainment));
-            var performanceItem = new ToolStripMenuItem("Performance", null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Performance));
+            var perfProfileMenu = new ToolStripMenuItem(LocalizationManager.T("TrayPerfProfile"));
+            var quietItem = new ToolStripMenuItem(LocalizationManager.T("PerfQuiet"), null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Quiet));
+            var powerSaveItem = new ToolStripMenuItem(LocalizationManager.T("PerfPowerSaver"), null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Powersaving));
+            var entertainmentItem = new ToolStripMenuItem(LocalizationManager.T("PerfEntertainment"), null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Entertainment));
+            var performanceItem = new ToolStripMenuItem(LocalizationManager.T("PerfPerformance"), null, (s, e) => ApplyPowerProfile(Controls.PowerMode.Mode.Performance));
             perfProfileMenu.DropDownItems.Add(quietItem);
             perfProfileMenu.DropDownItems.Add(powerSaveItem);
             perfProfileMenu.DropDownItems.Add(entertainmentItem);
             perfProfileMenu.DropDownItems.Add(performanceItem);
             _notifyIcon.ContextMenuStrip.Items.Add(perfProfileMenu);
 
-            var fanProfileMenu = new ToolStripMenuItem("Fan Profile");
-            var autoFanItem = new ToolStripMenuItem("Automatic", null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Auto));
-            var maxFanItem = new ToolStripMenuItem("Max Speed", null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Max));
-            var customFanItem = new ToolStripMenuItem("Custom Curve", null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Custom));
+            var fanProfileMenu = new ToolStripMenuItem(LocalizationManager.T("TrayFanProfile"));
+            var autoFanItem = new ToolStripMenuItem(LocalizationManager.T("FanAuto"), null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Auto));
+            var maxFanItem = new ToolStripMenuItem(LocalizationManager.T("FanMax"), null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Max));
+            var customFanItem = new ToolStripMenuItem(LocalizationManager.T("FanCustom"), null, (s, e) => ApplyFanProfile(Controls.Fan.Mode.Custom));
             fanProfileMenu.DropDownItems.Add(autoFanItem);
             fanProfileMenu.DropDownItems.Add(maxFanItem);
             fanProfileMenu.DropDownItems.Add(customFanItem);
             _notifyIcon.ContextMenuStrip.Items.Add(fanProfileMenu);
 
             _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripSeparator());
+
+            var kbTrayItem = new ToolStripMenuItem(LocalizationManager.T("NavKeyboard"), null, notifyIconContext_KeyboardMenuClick);
+            var batTrayItem = new ToolStripMenuItem(LocalizationManager.T("NavBattery"), null, notifyIconContext_BatteryMenuClick);
+            var toolsTrayItem = new ToolStripMenuItem(LocalizationManager.T("NavTools"), null, notifyIconContext_OtherMenuClick);
+            var settingsTrayItem = new ToolStripMenuItem(LocalizationManager.T("NavSettings"), null, notifyIconContext_SettingsMenuClick);
+            var aboutTrayItem = new ToolStripMenuItem(LocalizationManager.T("NavAbout"), null, notifyIconContext_AboutMenuClick);
+            var exitTrayItem = new ToolStripMenuItem(LocalizationManager.T("TrayExit"), null, notifyIconContext_ExitClick);
+
+            _notifyIcon.ContextMenuStrip.Items.Add(kbTrayItem);
+            _notifyIcon.ContextMenuStrip.Items.Add(batTrayItem);
+            _notifyIcon.ContextMenuStrip.Items.Add(toolsTrayItem);
+            _notifyIcon.ContextMenuStrip.Items.Add(settingsTrayItem);
+            _notifyIcon.ContextMenuStrip.Items.Add(aboutTrayItem);
+            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripSeparator());
+            _notifyIcon.ContextMenuStrip.Items.Add(exitTrayItem);
+
+            LocalizationManager.LanguageChanged += () =>
+            {
+                perfProfileMenu.Text = LocalizationManager.T("TrayPerfProfile");
+                quietItem.Text = LocalizationManager.T("PerfQuiet");
+                powerSaveItem.Text = LocalizationManager.T("PerfPowerSaver");
+                entertainmentItem.Text = LocalizationManager.T("PerfEntertainment");
+                performanceItem.Text = LocalizationManager.T("PerfPerformance");
+                fanProfileMenu.Text = LocalizationManager.T("TrayFanProfile");
+                autoFanItem.Text = LocalizationManager.T("FanAuto");
+                maxFanItem.Text = LocalizationManager.T("FanMax");
+                customFanItem.Text = LocalizationManager.T("FanCustom");
+                kbTrayItem.Text = LocalizationManager.T("NavKeyboard");
+                batTrayItem.Text = LocalizationManager.T("NavBattery");
+                toolsTrayItem.Text = LocalizationManager.T("NavTools");
+                settingsTrayItem.Text = LocalizationManager.T("NavSettings");
+                aboutTrayItem.Text = LocalizationManager.T("NavAbout");
+                exitTrayItem.Text = LocalizationManager.T("TrayExit");
+                UpdateTrayTooltip(GetPowerModeDisplayName(_lastPowerMode));
+            };
 
             _notifyIcon.ContextMenuStrip.Opening += (s, e) =>
             {
@@ -101,18 +120,11 @@ namespace BSCustomClevoController
                     maxFanItem.Checked = (currentFan.Mode == Controls.Fan.Mode.Max);
                     customFanItem.Checked = (currentFan.Mode == Controls.Fan.Mode.Custom);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Utility.AppLogger.Log("MainWindow.ContextMenuOpening", ex);
                 }
             };
-
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("Keyboard Lighting", null, notifyIconContext_KeyboardMenuClick));
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("Battery", null, notifyIconContext_BatteryMenuClick));
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("System Tools", null, notifyIconContext_OtherMenuClick));
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("Settings", null, notifyIconContext_SettingsMenuClick));
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("About", null, notifyIconContext_AboutMenuClick));
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripSeparator());
-            _notifyIcon.ContextMenuStrip.Items.Add(new ToolStripMenuItem("Exit", null, notifyIconContext_ExitClick));
 
             _notifyIcon.MouseClick += delegate (object sender, MouseEventArgs args)
             {
@@ -127,7 +139,6 @@ namespace BSCustomClevoController
                 BringToForeground();
             };
 
-            //Set Hamburger Navigation
             _frame = new Frame { NavigationUIVisibility = NavigationUIVisibility.Hidden };
             _frame.HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch;
             _frame.VerticalAlignment = VerticalAlignment.Stretch;
@@ -198,14 +209,33 @@ namespace BSCustomClevoController
             }
         }
 
+        private Controls.PowerMode.Mode _lastPowerMode = Controls.PowerMode.Mode.Entertainment;
+
+        private static string GetPowerModeDisplayName(Controls.PowerMode.Mode mode)
+        {
+            switch (mode)
+            {
+                case Controls.PowerMode.Mode.Quiet:
+                    return LocalizationManager.T("PerfQuiet", "Quiet");
+                case Controls.PowerMode.Mode.Powersaving:
+                    return LocalizationManager.T("PerfPowerSaver", "Power Saver");
+                case Controls.PowerMode.Mode.Performance:
+                    return LocalizationManager.T("PerfPerformance", "Performance");
+                case Controls.PowerMode.Mode.Entertainment:
+                default:
+                    return LocalizationManager.T("PerfEntertainment", "Entertainment");
+            }
+        }
+
         public void UpdateTrayTooltip(string extraInfo = null)
         {
             if (_notifyIcon == null) return;
             try
             {
+                string appTitle = LocalizationManager.T("AppTitle", "Clevo Control Center");
                 string text = string.IsNullOrWhiteSpace(extraInfo)
-                    ? "Custom Clevo Controller"
-                    : string.Format("Custom Clevo Controller ({0})", extraInfo);
+                    ? appTitle
+                    : string.Format(LocalizationManager.CurrentCulture, "{0} ({1})", appTitle, extraInfo);
 
                 if (text.Length > 63)
                 {
@@ -213,8 +243,9 @@ namespace BSCustomClevoController
                 }
                 _notifyIcon.Text = text;
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.UpdateTrayTooltip", ex);
             }
         }
 
@@ -256,16 +287,6 @@ namespace BSCustomClevoController
             }
         }
 
-        private void notifyIconContext_PerformanceMenuClick(object sender, EventArgs e)
-        {
-            NavigateToPage(0, "PerformanceSettings");
-        }
-
-        private void notifyIconContext_FanMenuClick(object sender, EventArgs e)
-        {
-            NavigateToPage(1, "FanSettings");
-        }
-
         private void notifyIconContext_KeyboardMenuClick(object sender, EventArgs e)
         {
             NavigateToPage(2, "KeyboardSettings");
@@ -291,7 +312,33 @@ namespace BSCustomClevoController
             NavigateToPage(6, "About");
         }
 
-        public void SyncPowerLineUI(bool isAcOnline)
+        private void SubscribeControlEvents()
+        {
+            Controls.PowerMode.PowerProfileChanged += OnPowerProfileChanged;
+            Controls.Fan.FanProfileChanged += OnFanProfileChanged;
+            Controls.KeyboardBackLight.BacklightChanged += OnBacklightChanged;
+            Utility.SystemPreferences.PowerLineChanged += OnPowerLineChanged;
+            Utility.SystemPreferences.FanProfileChanged += OnFanProfileChanged;
+            Utility.SystemPreferences.ShowMainWindowRequested += OnShowMainWindowRequested;
+        }
+
+        private void UnsubscribeControlEvents()
+        {
+            Controls.PowerMode.PowerProfileChanged -= OnPowerProfileChanged;
+            Controls.Fan.FanProfileChanged -= OnFanProfileChanged;
+            Controls.KeyboardBackLight.BacklightChanged -= OnBacklightChanged;
+            Utility.SystemPreferences.PowerLineChanged -= OnPowerLineChanged;
+            Utility.SystemPreferences.FanProfileChanged -= OnFanProfileChanged;
+            Utility.SystemPreferences.ShowMainWindowRequested -= OnShowMainWindowRequested;
+        }
+
+        private void OnPowerProfileChanged(Controls.PowerMode.Mode mode) => SyncPowerProfileUI(mode);
+        private void OnFanProfileChanged(Controls.Fan.Mode mode) => SyncFanProfileUI(mode);
+        private void OnBacklightChanged() => Dispatcher.BeginInvoke(new Action(SyncKeyboardSettingsUI));
+        private void OnPowerLineChanged(bool isAcOnline) => Dispatcher.BeginInvoke(new Action(() => SyncPowerLineUI(isAcOnline)));
+        private void OnShowMainWindowRequested() => Dispatcher.BeginInvoke(new Action(BringToForeground));
+
+        private void SyncPowerLineUI(bool isAcOnline)
         {
             try
             {
@@ -300,12 +347,13 @@ namespace BSCustomClevoController
                     kbPage.UpdateBatterySoftwareAnimationState(isAcOnline);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.SyncPowerLineUI", ex);
             }
         }
 
-        internal void SyncKeyboardSettingsUI()
+        private void SyncKeyboardSettingsUI()
         {
             try
             {
@@ -314,20 +362,9 @@ namespace BSCustomClevoController
                     kbPage.SyncFromHardwareHotkey();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-            }
-        }
-
-        internal void OpenKeyboardSettingsPage()
-        {
-            try
-            {
-                BringToForeground();
-                NavigateToPage(2, "KeyboardSettings");
-            }
-            catch
-            {
+                Utility.AppLogger.Log("MainWindow.SyncKeyboardSettingsUI", ex);
             }
         }
 
@@ -355,8 +392,8 @@ namespace BSCustomClevoController
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             if (helper.Handle != IntPtr.Zero)
             {
-                ShowWindow(helper.Handle, SW_RESTORE);
-                SetForegroundWindow(helper.Handle);
+                Utility.NativeMethods.ShowWindow(helper.Handle, Utility.NativeMethods.SW_RESTORE);
+                Utility.NativeMethods.SetForegroundWindow(helper.Handle);
             }
         }
 
@@ -367,6 +404,7 @@ namespace BSCustomClevoController
 
         protected override void OnClosed(EventArgs e)
         {
+            UnsubscribeControlEvents();
             App.CleanupOnExit();
             DisposeNotifyIcon();
             base.OnClosed(e);
@@ -424,44 +462,7 @@ namespace BSCustomClevoController
         protected override void OnPreviewMouseDown(System.Windows.Input.MouseButtonEventArgs e)
         {
             base.OnPreviewMouseDown(e);
-            if (System.Windows.Input.Keyboard.FocusedElement is DependencyObject focused)
-            {
-                System.Windows.Controls.TextBox textBox = focused as System.Windows.Controls.TextBox;
-                if (textBox == null)
-                {
-                    DependencyObject cur = focused;
-                    while (cur != null)
-                    {
-                        if (cur is System.Windows.Controls.TextBox tb)
-                        {
-                            textBox = tb;
-                            break;
-                        }
-                        cur = System.Windows.Media.VisualTreeHelper.GetParent(cur);
-                    }
-                }
-
-                if (textBox != null)
-                {
-                    DependencyObject clicked = e.OriginalSource as DependencyObject;
-                    bool isInside = false;
-                    DependencyObject check = clicked;
-                    while (check != null)
-                    {
-                        if (check == textBox)
-                        {
-                            isInside = true;
-                            break;
-                        }
-                        check = System.Windows.Media.VisualTreeHelper.GetParent(check);
-                    }
-
-                    if (!isInside)
-                    {
-                        Focus();
-                    }
-                }
-            }
+            Views.UiFocusHelper.ClearTextBoxFocusOnClick(this, e.OriginalSource);
         }
 
         private void ApplyPowerProfile(Controls.PowerMode.Mode mode)
@@ -472,8 +473,9 @@ namespace BSCustomClevoController
                 Utility.OsdOverlay.ShowPowerMode(mode);
                 SyncPowerProfileUI(mode);
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.ApplyPowerProfile", ex);
             }
         }
 
@@ -483,15 +485,17 @@ namespace BSCustomClevoController
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    UpdateTrayTooltip(mode.ToString());
+                    _lastPowerMode = mode;
+                    UpdateTrayTooltip(GetPowerModeDisplayName(mode));
                     if (_pageCache.TryGetValue("PerformanceSettings", out Page p) && p is Views.Page_PerformanceSettings ps)
                     {
                         ps.ApplyModeUI(mode);
                     }
                 }));
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.SyncPowerProfileUI", ex);
             }
         }
 
@@ -503,8 +507,9 @@ namespace BSCustomClevoController
                 Utility.OsdOverlay.ShowFan(mode);
                 SyncFanProfileUI(mode);
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.ApplyFanProfile", ex);
             }
         }
 
@@ -520,8 +525,9 @@ namespace BSCustomClevoController
                     }
                 }));
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.SyncFanProfileUI", ex);
             }
         }
         protected override void OnSourceInitialized(EventArgs e)
@@ -529,16 +535,16 @@ namespace BSCustomClevoController
             base.OnSourceInitialized(e);
             try
             {
-                _clevoMsg = RegisterWindowMessage("ClevoMsg_ControlCenter");
-                _clevoWmiMsg = RegisterWindowMessage("ClevoMsg_ControlCenter_WMI");
+                _clevoMsg = Utility.NativeMethods.RegisterWindowMessage("ClevoMsg_ControlCenter");
+                _clevoWmiMsg = Utility.NativeMethods.RegisterWindowMessage("ClevoMsg_ControlCenter_WMI");
 
                 if (_clevoMsg != 0)
                 {
-                    ChangeWindowMessageFilter(_clevoMsg, MSGFLT_ADD);
+                    Utility.NativeMethods.ChangeWindowMessageFilter(_clevoMsg, Utility.NativeMethods.MSGFLT_ADD);
                 }
                 if (_clevoWmiMsg != 0)
                 {
-                    ChangeWindowMessageFilter(_clevoWmiMsg, MSGFLT_ADD);
+                    Utility.NativeMethods.ChangeWindowMessageFilter(_clevoWmiMsg, Utility.NativeMethods.MSGFLT_ADD);
                 }
 
                 var source = PresentationSource.FromVisual(this) as HwndSource;
@@ -547,8 +553,9 @@ namespace BSCustomClevoController
                     source.AddHook(WndProc);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Utility.AppLogger.Log("MainWindow.OnSourceInitialized", ex);
             }
         }
 
@@ -582,10 +589,10 @@ namespace BSCustomClevoController
                         handled = true;
                         break;
                     case 259: // Touchpad
-                        if (DateTime.UtcNow >= Controls.Touchpad.SuppressHardwareEventsUntilUtc &&
-                            DateTime.UtcNow >= _lastTouchpadToggleTime.AddMilliseconds(800))
+                        if (!Controls.Touchpad.IsHardwareEventSuppressed &&
+                            Utility.MonotonicClock.ElapsedMs(_lastTouchpadToggleTicks) >= 800)
                         {
-                            _lastTouchpadToggleTime = DateTime.UtcNow;
+                            _lastTouchpadToggleTicks = Utility.MonotonicClock.NowTicks();
                             Controls.Touchpad.ToggleTouchpad();
                         }
                         handled = true;
@@ -611,7 +618,7 @@ namespace BSCustomClevoController
                         handled = true;
                         break;
                     case 262: // WinKey / FlexiKey hotkey
-                        if (DateTime.UtcNow >= Utility.SystemPreferences.LastWinKeyChangeTime.AddMilliseconds(500))
+                        if (!Utility.SystemPreferences.IsRecentWinKeyChange(500))
                         {
                             Utility.SystemPreferences.ToggleWinKeyLock();
                         }
@@ -630,8 +637,9 @@ namespace BSCustomClevoController
                             int lvl = (kbStatus.LightState && kbStatus.BackLight.A > 0) ? (int)Math.Round(kbStatus.BackLight.A / 255.0 * 4.0) : 0;
                             Utility.OsdOverlay.ShowBacklight(lvl);
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            Utility.AppLogger.Log("MainWindow.WndProc.BacklightOsd", ex);
                         }
                         handled = true;
                         break;

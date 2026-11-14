@@ -1,24 +1,37 @@
 using BSCustomClevoController.Utility;
 using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using static BSCustomClevoController.Utility.Structs;
 using BSCustomClevoController.Controls;
 
 namespace BSCustomClevoController.Views
 {
     public partial class Page_KeyboardSettings : Page
     {
+        private const string AppRegistryKey = @"HKEY_CURRENT_USER\Software\BSCustomClevoController";
+        private const int DefaultSleepTimeoutSeconds = 30;
+
         private readonly DispatcherTimer _colorThrottleTimer;
         private readonly DispatcherTimer _saveSettingsTimer;
         private Color? _pendingColor;
+        private int _pendingZoneIndex = -1;
         private byte _pendingBrightness = 255;
         private bool _isInitializing = true;
         private bool _isUpdatingEffects = false;
+        private bool _isUpdatingColorUi = false;
+        private bool _isDraggingSv = false;
+        private bool _isDraggingHue = false;
         private bool _hasLoadedOnce = false;
         private bool? _lastAcStateInUI = null;
+        private Color _selectedColor = Color.FromRgb(0, 120, 215);
+        private double _currentHue = 206.0;
+        private double _currentSat = 1.0;
+        private double _currentVal = 0.84;
+        private int _selectedZoneIndex = -1;
         private readonly KeyboardHardwareCapabilities _caps;
 
         public Page_KeyboardSettings()
@@ -40,7 +53,103 @@ namespace BSCustomClevoController.Views
             KeyboardStatus status = KeyboardBackLight.GetStatus();
             _caps = KeyboardBackLight.GetCapabilities();
 
-            // Color controls: keep visible; disable if hardware is monochrome
+            InitializeCapabilityControls(status);
+            InitializeEffectsControls(status);
+            InitializeLightingAndSleepControls(status);
+
+            _isInitializing = false;
+
+            if (ModeStatus.IsChecked == true)
+            {
+                if (status.Effect == null || status.Effect.IsSoftware)
+                {
+                    SetSleepTimerPaused(true);
+                }
+
+                if (EffectsListBox.SelectedItem is KeyboardEffect activeEff && activeEff.IsSoftware && !KeyboardEffect.IsAnySoftwareEffectRunning() && !KeyboardEffects.IsRunningOnBattery)
+                {
+                    ApplyCurrentEffect();
+                }
+            }
+            UpdateColorControlsState();
+            UpdateBootEffectControlState();
+            AttachLoadedHandlers();
+            LocalizationManager.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            if (_caps != null)
+            {
+                if (KeyboardColorModeBadgeText != null)
+                {
+                    KeyboardColorModeBadgeText.Text = _caps.KeyboardTypeName;
+                }
+
+                if (ActiveZoneLabelText != null)
+                {
+                    if (!_caps.SupportsRgb)
+                    {
+                        ActiveZoneLabelText.Text = LocalizationManager.T("KbColorModeMono");
+                    }
+                    else if (_caps.SupportsMultiZone)
+                    {
+                        UpdateZoneButtonsUI();
+                    }
+                    else
+                    {
+                        ActiveZoneLabelText.Text = LocalizationManager.T("KbColorModeSingleLine");
+                    }
+                }
+            }
+
+            EffectsListBox?.Items.Refresh();
+            UpdateBootEffectControlState();
+            UpdateColorControlsState();
+        }
+
+        private static byte StepToBrightnessValue(int step)
+        {
+            switch (step)
+            {
+                case 1: return 64;
+                case 2: return 128;
+                case 3: return 192;
+                default: return 255;
+            }
+        }
+
+        private static byte ScaleBrightnessToPercent(byte brightness)
+        {
+            return (byte)Math.Round(brightness / 255.0 * 100.0);
+        }
+
+        private static int SpeedToDurationMs(int speed)
+        {
+            if (speed == 1) return 5000;
+            if (speed == 3) return 1000;
+            return 2500;
+        }
+
+        private System.Drawing.Color GetSelectedDrawingColor()
+        {
+            return System.Drawing.Color.FromArgb(_selectedColor.R, _selectedColor.G, _selectedColor.B);
+        }
+
+        private static void ConfigureCapabilityRow(CheckBox checkBox, FrameworkElement row, UIElement badge, bool supported)
+        {
+            checkBox.IsEnabled = supported;
+            row.Opacity = supported ? 1.0 : 0.55;
+            badge.Visibility = supported ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void InitializeCapabilityControls(KeyboardStatus status)
+        {
+            if (KeyboardColorModeBadgeText != null)
+            {
+                KeyboardColorModeBadgeText.Text = _caps.KeyboardTypeName;
+            }
+
             if (!_caps.SupportsRgb)
             {
                 QuickColorPresetsCard.IsEnabled = false;
@@ -48,66 +157,87 @@ namespace BSCustomClevoController.Views
                 QuickColorPresetsCard.Opacity = 0.5;
                 ColorCanvasCard.Opacity = 0.5;
                 MonochromeColorBadge.Visibility = Visibility.Visible;
+                ZoneSelectorCard.Visibility = Visibility.Collapsed;
+                _selectedZoneIndex = -1;
+                if (KeyboardColorModeBadge != null)
+                {
+                    KeyboardColorModeBadge.Background = new SolidColorBrush(Color.FromRgb(28, 28, 36));
+                    KeyboardColorModeBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 70));
+                    if (KeyboardColorModeBadgeText != null)
+                    {
+                        KeyboardColorModeBadgeText.Foreground = (Brush)FindResource("Amoled.TextMuted");
+                    }
+                }
+                if (ActiveZoneLabelText != null)
+                {
+                    ActiveZoneLabelText.Text = LocalizationManager.T("KbColorModeMono");
+                }
             }
             else
             {
                 QuickColorPresetsCard.IsEnabled = true;
                 ColorCanvasCard.IsEnabled = true;
                 MonochromeColorBadge.Visibility = Visibility.Collapsed;
+
+                if (_caps.SupportsMultiZone)
+                {
+                    ZoneSelectorCard.Visibility = Visibility.Visible;
+                    _selectedZoneIndex = KeyboardBackLight.IsPerZoneColorActive() ? 0 : -1;
+                    RefreshZoneIndicatorDots();
+                    UpdateZoneButtonsUI();
+                }
+                else
+                {
+                    ZoneSelectorCard.Visibility = Visibility.Collapsed;
+                    _selectedZoneIndex = -1;
+                    if (ActiveZoneLabelText != null)
+                    {
+                        ActiveZoneLabelText.Text = LocalizationManager.T("KbColorModeSingleLine");
+                    }
+                }
             }
 
-            // Chassis Light Bar (keep visible; disable if unsupported)
             bool lightBarSupported = _caps.SupportsLightBar || IteHidController.IsLightBarPresent || Capabilities.IsSupported("SupportLightbar");
-            LightBarCheckBox.IsEnabled = lightBarSupported;
-            LightBarRow.Opacity = lightBarSupported ? 1.0 : 0.55;
-            LightBarBadge.Visibility = lightBarSupported ? Visibility.Collapsed : Visibility.Visible;
+            ConfigureCapabilityRow(LightBarCheckBox, LightBarRow, LightBarBadge, lightBarSupported);
             if (lightBarSupported)
             {
                 LightBarCheckBox.IsChecked = status.LightState;
             }
 
-            // Lid Logo Lighting (keep visible; disable if unsupported)
-            bool logoSupported = Capabilities.IsSupported("SupportLogoColor");
-            LogoCheckBox.IsEnabled = logoSupported;
-            LogoRow.Opacity = logoSupported ? 1.0 : 0.55;
-            LogoBadge.Visibility = logoSupported ? Visibility.Collapsed : Visibility.Visible;
+            ConfigureCapabilityRow(LogoCheckBox, LogoRow, LogoBadge, Capabilities.IsSupported("SupportLogoColor"));
+            ConfigureCapabilityRow(TouchpadLedCheckBox, TouchpadLedRow, TouchpadLedBadge, Capabilities.IsSupported("SupportTpColor"));
 
-            // Touchpad Perimeter Lighting (keep visible; disable if unsupported)
-            bool tpLedSupported = Capabilities.IsSupported("SupportTpColor");
-            TouchpadLedCheckBox.IsEnabled = tpLedSupported;
-            TouchpadLedRow.Opacity = tpLedSupported ? 1.0 : 0.55;
-            TouchpadLedBadge.Visibility = tpLedSupported ? Visibility.Collapsed : Visibility.Visible;
-
-            // Override Boot Effect (keep visible; disable if unsupported)
             bool bootOverrideSupported = _caps.SupportsBootEffectOverride;
-            BootEffectCheckBox.IsEnabled = bootOverrideSupported;
-            BootEffectRow.Opacity = bootOverrideSupported ? 1.0 : 0.55;
-            BootEffectBadge.Visibility = bootOverrideSupported ? Visibility.Collapsed : Visibility.Visible;
+            ConfigureCapabilityRow(BootEffectCheckBox, BootEffectRow, BootEffectBadge, bootOverrideSupported);
             if (bootOverrideSupported)
             {
                 BootEffectCheckBox.IsChecked = status.BootEffect;
             }
+        }
 
-            object regSpeed = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbAnimationSpeed", null);
+        private void InitializeEffectsControls(KeyboardStatus status)
+        {
+            object regSpeed = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "KbAnimationSpeed", null);
             int savedSpeed = (regSpeed is int sp && sp >= 1 && sp <= 3) ? sp : 2;
             KeyboardEffect.CurrentAnimationSpeed = savedSpeed;
             UpdateSpeedButtonsUI(savedSpeed);
 
-            // Initialize software animations toggle from registry (default: disabled)
             bool isBattery = KeyboardEffects.IsRunningOnBattery;
-            object regSoftware = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "SoftwareEffects", null);
+            object regSoftware = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "SoftwareEffects", null);
             bool allowSoftware = regSoftware is int intSoft && intSoft == 1;
             if (status.Effect != null && status.Effect.IsSoftware && !isBattery)
             {
                 allowSoftware = true;
                 try
                 {
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "SoftwareEffects", 1, Microsoft.Win32.RegistryValueKind.DWord);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "SoftwareEffects", 1, Microsoft.Win32.RegistryValueKind.DWord);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Page_KeyboardSettings.InitSoftwareEffects", ex);
                 }
             }
+
             SoftwareEffectsSwitch.IsChecked = allowSoftware && !isBattery;
             SoftwareEffectsSwitch.IsEnabled = !isBattery;
             if (SoftwareBatteryBadge != null)
@@ -115,24 +245,25 @@ namespace BSCustomClevoController.Views
                 SoftwareBatteryBadge.Visibility = isBattery ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            // Populate effects list with hardware and software effects
             UpdateAvailableEffects();
+        }
 
-            // Initialize lighting master status
+        private void InitializeLightingAndSleepControls(KeyboardStatus status)
+        {
             LedStatusCheckBox.IsChecked = status.LightState;
 
-            // Initialize brightness slider (preserve saved brightness even if backlight is currently off)
             int initialStep = KeyboardBackLight.BrightnessToStep(status.BackLight.A, true);
             if (initialStep < 1) initialStep = 4;
-            _pendingBrightness = (byte)(initialStep == 1 ? 64 : (initialStep == 2 ? 128 : (initialStep == 3 ? 192 : 255)));
+            _pendingBrightness = StepToBrightnessValue(initialStep);
             KeyboardEffects.MaxBrightness = _pendingBrightness;
             KeyboardBrightnessSlider.Value = initialStep;
             BrightnessPercentText.Text = $"{initialStep * 25}%";
 
-            // Initialize color canvas
-            LedColorCanvas.SelectedColor = Color.FromRgb(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+            Color initialColor = (_caps.SupportsMultiZone && _selectedZoneIndex >= 0)
+                ? ToMediaColor(KeyboardBackLight.GetZoneColour(_selectedZoneIndex))
+                : Color.FromRgb(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+            SetSelectedColor(initialColor, updateHsv: true, triggerHardware: false);
 
-            // Initialize effect selection
             if (status.Effect != null && EffectsListBox.ItemsSource is KeyboardEffect[] available)
             {
                 bool matched = false;
@@ -148,32 +279,9 @@ namespace BSCustomClevoController.Views
                 ModeStatus.IsChecked = matched;
             }
 
-            // Initialize boot effect override
             BootEffectCheckBox.IsChecked = status.BootEffect;
 
-            // Initialize sleep timer
-            int effectiveSleep = status.SleepSecond;
-            if (effectiveSleep <= 0)
-            {
-                object regUserSleep = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbUserSleepTimeout", null);
-                if (regUserSleep is int us && us > 0)
-                {
-                    effectiveSleep = us;
-                }
-                else
-                {
-                    object regSleep = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbSleepTimer", null);
-                    if (regSleep is int s && s > 0)
-                    {
-                        effectiveSleep = s;
-                    }
-                    else
-                    {
-                        effectiveSleep = 30; // Clevo factory default (30 seconds)
-                    }
-                }
-            }
-
+            int effectiveSleep = ResolveInitialSleepSeconds(status.SleepSecond);
             KeyboarSleepTimerHours.Text = Convert.ToString(effectiveSleep / 3600);
             KeyboarSleepTimerMunites.Text = Convert.ToString((effectiveSleep % 3600) / 60);
             KeyboarSleepTimerSeconds.Text = Convert.ToString(effectiveSleep % 60);
@@ -188,23 +296,35 @@ namespace BSCustomClevoController.Views
             KeyboarSleepTimerHours.LostFocus += KeyboarSleepTimer_LostFocus;
             KeyboarSleepTimerMunites.LostFocus += KeyboarSleepTimer_LostFocus;
             KeyboarSleepTimerSeconds.LostFocus += KeyboarSleepTimer_LostFocus;
+        }
 
-            _isInitializing = false;
-
-            if (ModeStatus.IsChecked == true && (status.Effect == null || status.Effect.IsSoftware))
+        private static int ResolveInitialSleepSeconds(int statusSleepSeconds)
+        {
+            if (statusSleepSeconds > 0)
             {
-                SetSleepTimerPaused(true);
+                return statusSleepSeconds;
             }
-            UpdateColorControlsState();
-            UpdateBootEffectControlState();
 
+            object regUserSleep = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "KbUserSleepTimeout", null);
+            if (regUserSleep is int us && us > 0)
+            {
+                return us;
+            }
+
+            object regSleep = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "KbSleepTimer", null);
+            if (regSleep is int s && s > 0)
+            {
+                return s;
+            }
+
+            return DefaultSleepTimeoutSeconds;
+        }
+
+        private void AttachLoadedHandlers()
+        {
             Loaded += (s, e) =>
             {
-                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
-                {
-                    HideAlphaChannelFromCanvas(LedColorCanvas);
-                    StyleColorCanvasElements(LedColorCanvas);
-                }));
+                PositionPickerThumbs();
 
                 bool isAc = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Online;
                 if (!_hasLoadedOnce)
@@ -219,15 +339,6 @@ namespace BSCustomClevoController.Views
                     UpdateBatterySoftwareAnimationState(isAc);
                 }
             };
-
-            LedColorCanvas.Loaded += (s, e) =>
-            {
-                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
-                {
-                    HideAlphaChannelFromCanvas(LedColorCanvas);
-                    StyleColorCanvasElements(LedColorCanvas);
-                }));
-            };
         }
 
         private void ColorThrottleTimer_Tick(object sender, EventArgs e)
@@ -236,16 +347,14 @@ namespace BSCustomClevoController.Views
             if (_pendingColor.HasValue)
             {
                 Color c = _pendingColor.Value;
-                KeyboardBackLight.SetColourRealtime(c.R, c.G, c.B);
+                ApplyColorRealtime(_pendingZoneIndex, c);
                 KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
 
                 if (LightBarCheckBox?.IsChecked == true)
                 {
-                    byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
-                    KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
+                    KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, ScaleBrightnessToPercent(_pendingBrightness));
                 }
 
-                // Restart debounce timer to save to ACPI flash when user finishes adjusting
                 _saveSettingsTimer.Stop();
                 _saveSettingsTimer.Start();
             }
@@ -257,37 +366,73 @@ namespace BSCustomClevoController.Views
             if (_pendingColor.HasValue)
             {
                 Color c = _pendingColor.Value;
+                int zone = _pendingZoneIndex;
                 _pendingColor = null;
-                KeyboardBackLight.SetColour(c.R, c.G, c.B);
+                PersistColor(zone, c);
             }
             KeyboardBackLight.SetBrightness(_pendingBrightness);
         }
 
-        private void LedColorCanvas_SelectedColorChanged(object sender, RoutedPropertyChangedEventArgs<Color?> e)
+        private void ApplyColorRealtime(int zoneIndex, Color c)
         {
-            if (_isInitializing) return;
-
-            if (LedColorCanvas.SelectedColor.HasValue)
+            if (_caps.SupportsMultiZone && zoneIndex >= 0 && zoneIndex <= 2)
             {
-                Color chosen = LedColorCanvas.SelectedColor.Value;
-                _pendingColor = Color.FromRgb(chosen.R, chosen.G, chosen.B);
-                LedColorCanvas.A = 255;
+                KeyboardBackLight.SetZoneColourRealtime(zoneIndex, c.R, c.G, c.B);
+            }
+            else
+            {
+                KeyboardBackLight.SetColourRealtime(c.R, c.G, c.B);
+            }
+        }
 
-                // If user changes color, turn off animated effects to show static color
-                if (ModeStatus.IsChecked == true)
-                {
-                    ModeStatus.IsChecked = false;
-                }
+        private void PersistColor(int zoneIndex, Color c)
+        {
+            if (_caps.SupportsMultiZone && zoneIndex >= 0 && zoneIndex <= 2)
+            {
+                KeyboardBackLight.SetZoneColour(zoneIndex, c.R, c.G, c.B);
+            }
+            else
+            {
+                KeyboardBackLight.SetColour(c.R, c.G, c.B);
+            }
+        }
 
-                if (LedStatusCheckBox.IsChecked != true)
-                {
-                    LedStatusCheckBox.IsChecked = true;
-                }
+        private void ApplySelectedColorToHardware()
+        {
+            if (!_caps.SupportsRgb) return;
 
-                if (!_colorThrottleTimer.IsEnabled)
+            if (_caps.SupportsMultiZone && KeyboardBackLight.IsPerZoneColorActive())
+            {
+                for (int z = 0; z < 3; z++)
                 {
-                    _colorThrottleTimer.Start();
+                    System.Drawing.Color zc = KeyboardBackLight.GetZoneColour(z);
+                    KeyboardBackLight.SetZoneColour(z, zc.R, zc.G, zc.B);
                 }
+            }
+            else
+            {
+                PersistColor(_selectedZoneIndex, _selectedColor);
+            }
+        }
+
+        private void OnUserColorChanged(Color chosen)
+        {
+            _pendingColor = Color.FromRgb(chosen.R, chosen.G, chosen.B);
+            _pendingZoneIndex = _caps.SupportsMultiZone ? _selectedZoneIndex : -1;
+
+            if (ModeStatus.IsChecked == true)
+            {
+                ModeStatus.IsChecked = false;
+            }
+
+            if (LedStatusCheckBox.IsChecked != true)
+            {
+                LedStatusCheckBox.IsChecked = true;
+            }
+
+            if (!_colorThrottleTimer.IsEnabled)
+            {
+                _colorThrottleTimer.Start();
             }
         }
 
@@ -296,7 +441,7 @@ namespace BSCustomClevoController.Views
             if (BrightnessPercentText == null) return;
 
             int step = Math.Max(1, Math.Min(4, (int)Math.Round(e.NewValue)));
-            byte val = (byte)(step == 1 ? 64 : (step == 2 ? 128 : (step == 3 ? 192 : 255)));
+            byte val = StepToBrightnessValue(step);
             _pendingBrightness = val;
             KeyboardEffects.MaxBrightness = val;
             BrightnessPercentText.Text = $"{step * 25}%";
@@ -305,8 +450,7 @@ namespace BSCustomClevoController.Views
 
             bool isModeActive = ModeStatus.IsChecked == true;
             KeyboardEffect effect = EffectsListBox.SelectedItem as KeyboardEffect;
-            bool isSoftwareBreathRunning = isModeActive && effect != null &&
-                (effect.Id == 8 || effect.Id == 10);
+            bool isSoftwareBreathRunning = isModeActive && effect != null && effect.IsBreathingSoftwareEffect;
 
             if (!isSoftwareBreathRunning)
             {
@@ -322,14 +466,11 @@ namespace BSCustomClevoController.Views
                     effect.IteBehaviour);
             }
 
-            if (LightBarCheckBox?.IsChecked == true && LedColorCanvas.SelectedColor.HasValue)
+            if (LightBarCheckBox?.IsChecked == true)
             {
-                Color c = LedColorCanvas.SelectedColor.Value;
-                byte lbBri = (byte)Math.Round(val / 255.0 * 100.0);
-                KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
+                KeyboardBackLight.SetLightBarColor(_selectedColor.R, _selectedColor.G, _selectedColor.B, ScaleBrightnessToPercent(val));
             }
 
-            // Debounce persistence write to ACPI
             _saveSettingsTimer.Stop();
             _saveSettingsTimer.Start();
         }
@@ -342,7 +483,6 @@ namespace BSCustomClevoController.Views
                 {
                     Color col = (Color)ColorConverter.ConvertFromString(hex);
 
-                    // Stop animated effects when applying a static preset color
                     if (ModeStatus.IsChecked == true)
                     {
                         ModeStatus.IsChecked = false;
@@ -354,19 +494,20 @@ namespace BSCustomClevoController.Views
                     }
 
                     _pendingColor = null;
-                    LedColorCanvas.SelectedColor = col;
+                    int targetZone = _caps.SupportsMultiZone ? _selectedZoneIndex : -1;
+                    SetSelectedColor(col, updateHsv: true, triggerHardware: false);
 
-                    KeyboardBackLight.SetColour(col.R, col.G, col.B);
+                    PersistColor(targetZone, col);
                     KeyboardBackLight.SetBrightness(_pendingBrightness);
 
                     if (LightBarCheckBox?.IsChecked == true)
                     {
-                        byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
-                        KeyboardBackLight.SetLightBarColor(col.R, col.G, col.B, lbBri);
+                        KeyboardBackLight.SetLightBarColor(col.R, col.G, col.B, ScaleBrightnessToPercent(_pendingBrightness));
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("Page_KeyboardSettings.PresetColor", ex);
                 }
             }
         }
@@ -384,14 +525,7 @@ namespace BSCustomClevoController.Views
                 bool hasEffects = availableEffects != null && availableEffects.Length > 0;
                 if (NoEffectsMessage != null)
                 {
-                    if (isBattery)
-                    {
-                        NoEffectsMessage.Text = "Software animations are disabled on battery power to conserve battery life.";
-                    }
-                    else
-                    {
-                        NoEffectsMessage.Text = "Turn on Software Lighting Effects above to view extra animations.";
-                    }
+                    NoEffectsMessage.SetResourceReference(TextBlock.TextProperty, isBattery ? "Loc.KbNoEffectsBattery" : "Loc.KbNoEffectsTurnOn");
                     NoEffectsMessage.Visibility = hasEffects ? Visibility.Collapsed : Visibility.Visible;
                 }
 
@@ -427,13 +561,13 @@ namespace BSCustomClevoController.Views
 
             try
             {
-                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "SoftwareEffects", allowSoftware ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(AppRegistryKey, "SoftwareEffects", allowSoftware ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_KeyboardSettings.SoftwareEffectsSwitch", ex);
             }
 
-            // If software animations are disabled and an active software effect is playing, turn off effect
             if (!allowSoftware && EffectsListBox.SelectedItem is KeyboardEffect active && active.IsSoftware)
             {
                 ModeStatus.IsChecked = false;
@@ -441,6 +575,20 @@ namespace BSCustomClevoController.Views
             }
 
             UpdateAvailableEffects();
+
+            if (allowSoftware)
+            {
+                if (!_caps.SupportsHardwareEffects && ModeStatus.IsChecked != true)
+                {
+                    ModeStatus.IsChecked = true;
+                }
+                else if (ModeStatus.IsChecked == true && EffectsListBox.SelectedItem is KeyboardEffect selectedEffect)
+                {
+                    ApplyCurrentEffect();
+                    SaveActiveEffect(selectedEffect, true);
+                }
+            }
+
             UpdateColorControlsState();
             UpdateBootEffectControlState();
         }
@@ -491,6 +639,20 @@ namespace BSCustomClevoController.Views
                 return;
             }
 
+            if (!_caps.SupportsHardwareEffects && SoftwareEffectsSwitch.IsChecked != true && !KeyboardEffects.IsRunningOnBattery)
+            {
+                SoftwareEffectsSwitch.IsChecked = true;
+                try
+                {
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "SoftwareEffects", 1, Microsoft.Win32.RegistryValueKind.DWord);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Log("Page_KeyboardSettings.ModeStatus_Checked", ex);
+                }
+                UpdateAvailableEffects();
+            }
+
             if (EffectsListBox.SelectedIndex < 0)
             {
                 EffectsListBox.SelectedIndex = 0;
@@ -525,12 +687,7 @@ namespace BSCustomClevoController.Views
                 SaveActiveEffect(null, false);
             }
 
-            // Restore active static color
-            if (LedColorCanvas.SelectedColor.HasValue)
-            {
-                Color col = LedColorCanvas.SelectedColor.Value;
-                KeyboardBackLight.SetColour(col.R, col.G, col.B);
-            }
+            ApplySelectedColorToHardware();
             KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
 
             UpdateColorControlsState();
@@ -548,10 +705,9 @@ namespace BSCustomClevoController.Views
             {
                 ApplyCurrentEffect();
             }
-            else if (LedColorCanvas.SelectedColor.HasValue)
+            else if (_caps.SupportsRgb)
             {
-                Color c = LedColorCanvas.SelectedColor.Value;
-                KeyboardBackLight.SetColour(c.R, c.G, c.B);
+                ApplySelectedColorToHardware();
                 KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
             }
 
@@ -584,17 +740,23 @@ namespace BSCustomClevoController.Views
             }
 
             int speed = KeyboardEffect.CurrentAnimationSpeed;
-            KeyboardEffects.Duration = speed == 1 ? 5000 : (speed == 3 ? 1000 : 2500);
+            KeyboardEffects.Duration = SpeedToDurationMs(speed);
 
             KeyboardEffects.MaxBrightness = _pendingBrightness;
 
-            if (effect.Id == 8 && LedColorCanvas?.SelectedColor.HasValue == true)
+            if (effect.Id == 8 && _caps.SupportsRgb)
             {
-                Color c = LedColorCanvas.SelectedColor.Value;
-                KeyboardBackLight.SetColourRealtime(c.R, c.G, c.B);
+                if (_caps.SupportsMultiZone && KeyboardBackLight.IsPerZoneColorActive())
+                {
+                    KeyboardBackLight.ApplyCurrentStaticColorsRealtime();
+                }
+                else
+                {
+                    KeyboardBackLight.SetColourRealtime(_selectedColor.R, _selectedColor.G, _selectedColor.B);
+                }
             }
 
-            bool isSoftwareBreath = effect.Id == 8 || effect.Id == 10;
+            bool isSoftwareBreath = effect.IsBreathingSoftwareEffect;
             KeyboardBackLight.TurnOn(isSoftwareBreath ? (byte)0 : _pendingBrightness);
 
             SetSleepTimerPaused(true);
@@ -605,11 +767,10 @@ namespace BSCustomClevoController.Views
         private void LightBarCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
-            byte lbBri = (byte)Math.Round(_pendingBrightness / 255.0 * 100.0);
-            if (LedColorCanvas.SelectedColor.HasValue)
+            byte lbBri = ScaleBrightnessToPercent(_pendingBrightness);
+            if (_caps.SupportsRgb)
             {
-                Color c = LedColorCanvas.SelectedColor.Value;
-                KeyboardBackLight.SetLightBarColor(c.R, c.G, c.B, lbBri);
+                KeyboardBackLight.SetLightBarColor(_selectedColor.R, _selectedColor.G, _selectedColor.B, lbBri);
             }
             else
             {
@@ -635,7 +796,7 @@ namespace BSCustomClevoController.Views
             KeyboardBackLight.OverrideBootEffect(false);
         }
 
-                private void SpeedBtn_Click(object sender, RoutedEventArgs e)
+        private void SpeedBtn_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && int.TryParse(btn.Tag?.ToString(), out int speed))
             {
@@ -650,10 +811,11 @@ namespace BSCustomClevoController.Views
 
             try
             {
-                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbAnimationSpeed", speed, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbAnimationSpeed", speed, Microsoft.Win32.RegistryValueKind.DWord);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_KeyboardSettings.ApplyAnimationSpeed", ex);
             }
 
             Capabilities.SetKeyboardAnimationSpeed(speed);
@@ -667,7 +829,7 @@ namespace BSCustomClevoController.Views
                 }
                 else if (effect.IsSoftware)
                 {
-                    KeyboardEffects.Duration = speed == 1 ? 5000 : (speed == 3 ? 1000 : 2500);
+                    KeyboardEffects.Duration = SpeedToDurationMs(speed);
                 }
             }
         }
@@ -688,7 +850,7 @@ namespace BSCustomClevoController.Views
                 if (BootEffectCheckBox != null)
                 {
                     BootEffectCheckBox.IsEnabled = false;
-                    BootEffectCheckBox.ToolTip = "Not supported on this model";
+                    BootEffectCheckBox.ToolTip = LocalizationManager.T("CommonNotSupported");
                 }
                 if (BootEffectRow != null) BootEffectRow.Opacity = 0.55;
                 if (BootEffectBadge != null) BootEffectBadge.Visibility = Visibility.Visible;
@@ -709,69 +871,76 @@ namespace BSCustomClevoController.Views
         {
             try
             {
-                Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectActive", active ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
+                Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbEffectActive", active ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
                 if (effect != null)
                 {
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectId", effect.Id, Microsoft.Win32.RegistryValueKind.DWord);
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectUniqId", (int)effect.UniqId, Microsoft.Win32.RegistryValueKind.DWord);
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectName", effect.Name ?? string.Empty);
-                    Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectIsSoftware", effect.IsSoftware ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbEffectId", effect.Id, Microsoft.Win32.RegistryValueKind.DWord);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbEffectUniqId", (int)effect.UniqId, Microsoft.Win32.RegistryValueKind.DWord);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbEffectName", effect.Name ?? string.Empty);
+                    Microsoft.Win32.Registry.SetValue(AppRegistryKey, "KbEffectIsSoftware", effect.IsSoftware ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_KeyboardSettings.SaveActiveEffect", ex);
             }
         }
 
         private void LogoCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
-            Capabilities.SetWMI(103, 1u);
+            KeyboardBackLight.SetLogoLed(true, GetSelectedDrawingColor());
         }
 
         private void LogoCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
-            Capabilities.SetWMI(103, 0u);
+            KeyboardBackLight.SetLogoLed(false, GetSelectedDrawingColor());
         }
 
         private void TouchpadLedCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
-            Capabilities.SetWMI(103, 1u);
+            KeyboardBackLight.SetTouchpadLed(true, GetSelectedDrawingColor());
         }
 
         private void TouchpadLedCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             if (_isInitializing) return;
-            Capabilities.SetWMI(103, 0u);
+            KeyboardBackLight.SetTouchpadLed(false, GetSelectedDrawingColor());
         }
 
-        private void KeyboarSleepTimer_TextChanged(object sender, TextChangedEventArgs e)
+        private int GetConfiguredSleepSeconds()
         {
-            if (_isInitializing || ModeStatus.IsChecked == true) return;
-
-            if (sender is TextBox tb && int.TryParse(tb.Text, out int val))
-            {
-                if (val > 59)
-                {
-                    tb.Text = "59";
-                }
-            }
-
             int h = int.TryParse(KeyboarSleepTimerHours?.Text, out int parsedH) ? parsedH : 0;
             int m = int.TryParse(KeyboarSleepTimerMunites?.Text, out int parsedM) ? parsedM : 0;
             int s = int.TryParse(KeyboarSleepTimerSeconds?.Text, out int parsedS) ? parsedS : 0;
+            return (h * 3600) + (m * 60) + s;
+        }
 
-            int totalSeconds = (h * 3600) + (m * 60) + s;
+        private void ApplyConfiguredSleepTimer()
+        {
+            int totalSeconds = GetConfiguredSleepSeconds();
             if (totalSeconds > 0)
             {
                 KeyboardBackLight.SetSleepTimer(totalSeconds);
             }
             else
             {
-                KeyboardBackLight.TurnSleepTimerOff();
+                KeyboardBackLight.TurnSleepTimerOff(updateRegistry: true);
             }
+        }
+
+        private void KeyboarSleepTimer_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || ModeStatus.IsChecked == true) return;
+
+            if (sender is TextBox tb && int.TryParse(tb.Text, out int val) && val > 59)
+            {
+                tb.Text = "59";
+            }
+
+            ApplyConfiguredSleepTimer();
         }
 
         private void SetSleepTimerPaused(bool paused)
@@ -791,19 +960,7 @@ namespace BSCustomClevoController.Views
             }
             else
             {
-                int h = int.TryParse(KeyboarSleepTimerHours?.Text, out int parsedH) ? parsedH : 0;
-                int m = int.TryParse(KeyboarSleepTimerMunites?.Text, out int parsedM) ? parsedM : 0;
-                int s = int.TryParse(KeyboarSleepTimerSeconds?.Text, out int parsedS) ? parsedS : 0;
-
-                int totalSeconds = (h * 3600) + (m * 60) + s;
-                if (totalSeconds > 0)
-                {
-                    KeyboardBackLight.SetSleepTimer(totalSeconds);
-                }
-                else
-                {
-                    KeyboardBackLight.TurnSleepTimerOff(updateRegistry: true);
-                }
+                ApplyConfiguredSleepTimer();
             }
         }
 
@@ -835,7 +992,7 @@ namespace BSCustomClevoController.Views
                     if (!isAcOnline)
                     {
                         if (SoftwareBatteryBadge != null) SoftwareBatteryBadge.Visibility = Visibility.Visible;
-                        if (SoftwareAnimationSubtitle != null) SoftwareAnimationSubtitle.Visibility = Visibility.Visible;
+                        SoftwareAnimationSubtitle?.SetResourceReference(TextBlock.TextProperty, "Loc.KbSoftwareAnimationsBatterySubtitle");
                         if (SoftwareEffectsSwitch != null)
                         {
                             SoftwareEffectsSwitch.IsEnabled = false;
@@ -845,12 +1002,8 @@ namespace BSCustomClevoController.Views
                         if (EffectsListBox?.SelectedItem is KeyboardEffect effect && effect.IsSoftware)
                         {
                             KeyboardEffect.StopAllSoftwareEffects();
-                            if (LedColorCanvas.SelectedColor.HasValue)
-                            {
-                                Color c = LedColorCanvas.SelectedColor.Value;
-                                KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
-                                KeyboardBackLight.SetColour(c.R, c.G, c.B);
-                            }
+                            KeyboardBackLight.SetBrightnessRealtime(_pendingBrightness);
+                            ApplySelectedColorToHardware();
                             SetSleepTimerPaused(false);
                         }
 
@@ -859,17 +1012,17 @@ namespace BSCustomClevoController.Views
                     else
                     {
                         if (SoftwareBatteryBadge != null) SoftwareBatteryBadge.Visibility = Visibility.Collapsed;
-                        if (SoftwareAnimationSubtitle != null) SoftwareAnimationSubtitle.Visibility = Visibility.Visible;
+                        SoftwareAnimationSubtitle?.SetResourceReference(TextBlock.TextProperty, "Loc.KbSoftwareAnimationsSubtitle");
                         if (SoftwareEffectsSwitch != null)
                         {
                             SoftwareEffectsSwitch.IsEnabled = true;
-                            object reg = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "SoftwareEffects", 1);
+                            object reg = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "SoftwareEffects", 1);
                             SoftwareEffectsSwitch.IsChecked = reg == null || Convert.ToInt32(reg) != 0;
                         }
 
                         UpdateAvailableEffects();
 
-                        object regId = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectId", null);
+                        object regId = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "KbEffectId", null);
                         if (regId is int idVal && EffectsListBox.ItemsSource is KeyboardEffect[] available)
                         {
                             for (int i = 0; i < available.Length; i++)
@@ -882,7 +1035,7 @@ namespace BSCustomClevoController.Views
                             }
                         }
 
-                        object regActive = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "KbEffectActive", null);
+                        object regActive = Microsoft.Win32.Registry.GetValue(AppRegistryKey, "KbEffectActive", null);
                         bool shouldBeActive = regActive is int a && a == 1;
                         if (shouldBeActive)
                         {
@@ -902,9 +1055,15 @@ namespace BSCustomClevoController.Views
 
         private void UpdateColorControlsState()
         {
+            if (_caps != null && !_caps.SupportsRgb)
+            {
+                SetColorControlsEnabled(false, LocalizationManager.T("KbColorDisabledMono"));
+                return;
+            }
+
             if (LedStatusCheckBox?.IsChecked != true)
             {
-                SetColorControlsEnabled(false, "Keyboard backlight is turned off");
+                SetColorControlsEnabled(false, LocalizationManager.T("KbColorDisabledOff"));
                 return;
             }
 
@@ -923,7 +1082,7 @@ namespace BSCustomClevoController.Views
 
             if (isSelfColoringEffect)
             {
-                SetColorControlsEnabled(false, $"Color selection is disabled while '{effect.Name}' animation is active because it cycles colors automatically.");
+                SetColorControlsEnabled(false, LocalizationManager.Format("KbColorDisabledEffectFmt", effect.LocalizedName));
             }
             else
             {
@@ -948,46 +1107,9 @@ namespace BSCustomClevoController.Views
             }
         }
 
-        private bool HideAlphaChannelFromCanvas(DependencyObject parent)
+        private void KeyboarSleepTimer_KeyDown(object sender, KeyEventArgs e)
         {
-            if (parent == null) return false;
-
-            int count = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < count; i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
-                if (child is TextBlock tb)
-                {
-                    string txt = tb.Text?.Trim();
-                    if (string.Equals(txt, "Alpha", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(txt, "A", StringComparison.Ordinal))
-                    {
-                        DependencyObject current = tb;
-                        while (current != null && !(current is Grid) && current != LedColorCanvas)
-                        {
-                            current = VisualTreeHelper.GetParent(current);
-                        }
-
-                        if (current is Grid channelGrid)
-                        {
-                            channelGrid.Visibility = Visibility.Collapsed;
-                            return true;
-                        }
-                    }
-                }
-
-                if (HideAlphaChannelFromCanvas(child))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    
-        private void KeyboarSleepTimer_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            if (e.Key == System.Windows.Input.Key.Enter || e.Key == System.Windows.Input.Key.Escape)
+            if (e.Key == Key.Enter || e.Key == Key.Escape)
             {
                 (Window.GetWindow(sender as DependencyObject ?? this) ?? Application.Current.MainWindow)?.Focus();
                 e.Handled = true;
@@ -1011,18 +1133,23 @@ namespace BSCustomClevoController.Views
                 {
                     int step = KeyboardBackLight.BrightnessToStep(status.BackLight.A, status.LightState);
                     if (step < 1) step = 1;
-                    _pendingBrightness = (byte)(step == 1 ? 64 : (step == 2 ? 128 : (step == 3 ? 192 : 255)));
+                    _pendingBrightness = StepToBrightnessValue(step);
                     KeyboardEffects.MaxBrightness = _pendingBrightness;
                     KeyboardBrightnessSlider.Value = step;
                     BrightnessPercentText.Text = $"{step * 25}%";
                 }
                 if (_caps.SupportsRgb)
                 {
-                    LedColorCanvas.SelectedColor = Color.FromRgb(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+                    Color syncedColor = (_caps.SupportsMultiZone && KeyboardBackLight.IsPerZoneColorActive())
+                        ? ToMediaColor(KeyboardBackLight.GetZoneColour(_selectedZoneIndex >= 0 ? _selectedZoneIndex : 0))
+                        : Color.FromRgb(status.BackLight.R, status.BackLight.G, status.BackLight.B);
+                    SetSelectedColor(syncedColor, updateHsv: true, triggerHardware: false);
+                    RefreshZoneIndicatorDots();
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_KeyboardSettings.SyncFromHardwareHotkey", ex);
             }
             finally
             {
@@ -1030,51 +1157,367 @@ namespace BSCustomClevoController.Views
             }
         }
 
-        private void StyleColorCanvasElements(DependencyObject parent)
+        private static Color ToMediaColor(System.Drawing.Color c) => Color.FromRgb(c.R, c.G, c.B);
+
+        private void ZoneButton_Click(object sender, RoutedEventArgs e)
         {
-            if (parent == null) return;
+            if (!_caps.SupportsRgb || !_caps.SupportsMultiZone) return;
 
-            var bgBrush = new SolidColorBrush(Color.FromRgb(16, 16, 20));
-            var borderBrush = new SolidColorBrush(Color.FromRgb(30, 30, 38));
-
-            int count = VisualTreeHelper.GetChildrenCount(parent);
-            for (int i = 0; i < count; i++)
+            if (sender is Button btn && int.TryParse(btn.Tag?.ToString(), out int zone))
             {
-                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+                _selectedZoneIndex = zone;
+                UpdateZoneButtonsUI();
 
-                if (child is Button btn)
+                Color targetColor;
+                if (zone >= 0)
                 {
-                    btn.Background = bgBrush;
-                    btn.BorderBrush = borderBrush;
+                    targetColor = ToMediaColor(KeyboardBackLight.GetZoneColour(zone));
                 }
-                else if (child is Border b && b.Background is SolidColorBrush scb && scb.Color == Colors.Black)
+                else
                 {
-                    b.Background = bgBrush;
-                }
-                else if (child is Panel p && p.Background is SolidColorBrush pscb && pscb.Color == Colors.Black)
-                {
-                    p.Background = bgBrush;
-                }
-                else if (child is TextBox tb)
-                {
-                    tb.Background = bgBrush;
-                    tb.Foreground = Brushes.White;
-                }
-                else if (child is TextBlock textBlock)
-                {
-                    textBlock.Foreground = Brushes.White;
-                }
-                else if (child is Label lbl)
-                {
-                    lbl.Foreground = Brushes.White;
-                }
-                else if (child is Control ctrl && !(child is Button))
-                {
-                    ctrl.Foreground = Brushes.White;
+                    KeyboardStatus st = KeyboardBackLight.GetStatus();
+                    targetColor = Color.FromRgb(st.BackLight.R, st.BackLight.G, st.BackLight.B);
                 }
 
-                StyleColorCanvasElements(child);
+                SetSelectedColor(targetColor, updateHsv: true, triggerHardware: false);
             }
+        }
+
+        private void UpdateZoneButtonsUI()
+        {
+            if (ZoneAllBtn == null || ZoneLeftBtn == null || ZoneCenterBtn == null || ZoneRightBtn == null)
+            {
+                return;
+            }
+
+            Style inactive = (Style)FindResource("OpenSenseSegmentedPillButtonStyle");
+            Style active = (Style)FindResource("OpenSenseSegmentedPillActiveStyle");
+
+            ZoneAllBtn.Style = _selectedZoneIndex == -1 ? active : inactive;
+            ZoneLeftBtn.Style = _selectedZoneIndex == 0 ? active : inactive;
+            ZoneCenterBtn.Style = _selectedZoneIndex == 1 ? active : inactive;
+            ZoneRightBtn.Style = _selectedZoneIndex == 2 ? active : inactive;
+
+            if (ActiveZoneLabelText != null)
+            {
+                switch (_selectedZoneIndex)
+                {
+                    case 0: ActiveZoneLabelText.Text = LocalizationManager.T("KbZone1Left"); break;
+                    case 1: ActiveZoneLabelText.Text = LocalizationManager.T("KbZone2Center"); break;
+                    case 2: ActiveZoneLabelText.Text = LocalizationManager.T("KbZone3Right"); break;
+                    default: ActiveZoneLabelText.Text = LocalizationManager.T("KbZoneAllSync"); break;
+                }
+            }
+        }
+
+        private void RefreshZoneIndicatorDots()
+        {
+            if (!_caps.SupportsMultiZone) return;
+
+            if (ZoneLeftDot != null)
+            {
+                ZoneLeftDot.Fill = new SolidColorBrush(ToMediaColor(KeyboardBackLight.GetZoneColour(0)));
+            }
+            if (ZoneCenterDot != null)
+            {
+                ZoneCenterDot.Fill = new SolidColorBrush(ToMediaColor(KeyboardBackLight.GetZoneColour(1)));
+            }
+            if (ZoneRightDot != null)
+            {
+                ZoneRightDot.Fill = new SolidColorBrush(ToMediaColor(KeyboardBackLight.GetZoneColour(2)));
+            }
+        }
+
+        private void SetSelectedColor(Color c, bool updateHsv, bool triggerHardware, TextBox skipTextFieldUpdate = null)
+        {
+            _selectedColor = Color.FromRgb(c.R, c.G, c.B);
+            if (updateHsv)
+            {
+                RgbToHsv(_selectedColor.R, _selectedColor.G, _selectedColor.B, out _currentHue, out _currentSat, out _currentVal);
+            }
+
+            UpdatePickerVisuals(skipTextFieldUpdate);
+
+            if (triggerHardware && !_isInitializing)
+            {
+                OnUserColorChanged(_selectedColor);
+            }
+        }
+
+        private void UpdatePickerVisuals(TextBox skipTextFieldUpdate = null)
+        {
+            _isUpdatingColorUi = true;
+            try
+            {
+                Color pureHue = HsvToRgb(_currentHue, 1.0, 1.0);
+                if (SvHueBackground != null)
+                {
+                    SvHueBackground.Background = new SolidColorBrush(pureHue);
+                }
+
+                SolidColorBrush selectedBrush = new SolidColorBrush(_selectedColor);
+                if (SvPickerThumbFill != null)
+                {
+                    SvPickerThumbFill.Background = selectedBrush;
+                }
+                if (SelectedColorSwatch != null)
+                {
+                    SelectedColorSwatch.Background = selectedBrush;
+                }
+
+                if (HexColorInput != null && skipTextFieldUpdate != HexColorInput)
+                {
+                    HexColorInput.Text = $"#{_selectedColor.R:X2}{_selectedColor.G:X2}{_selectedColor.B:X2}";
+                }
+                if (RColorInput != null && skipTextFieldUpdate != RColorInput)
+                {
+                    RColorInput.Text = _selectedColor.R.ToString(CultureInfo.InvariantCulture);
+                }
+                if (GColorInput != null && skipTextFieldUpdate != GColorInput)
+                {
+                    GColorInput.Text = _selectedColor.G.ToString(CultureInfo.InvariantCulture);
+                }
+                if (BColorInput != null && skipTextFieldUpdate != BColorInput)
+                {
+                    BColorInput.Text = _selectedColor.B.ToString(CultureInfo.InvariantCulture);
+                }
+
+                if (_caps.SupportsMultiZone)
+                {
+                    if (_selectedZoneIndex == -1)
+                    {
+                        if (ZoneLeftDot != null) ZoneLeftDot.Fill = selectedBrush;
+                        if (ZoneCenterDot != null) ZoneCenterDot.Fill = selectedBrush;
+                        if (ZoneRightDot != null) ZoneRightDot.Fill = selectedBrush;
+                    }
+                    else if (_selectedZoneIndex == 0 && ZoneLeftDot != null)
+                    {
+                        ZoneLeftDot.Fill = selectedBrush;
+                    }
+                    else if (_selectedZoneIndex == 1 && ZoneCenterDot != null)
+                    {
+                        ZoneCenterDot.Fill = selectedBrush;
+                    }
+                    else if (_selectedZoneIndex == 2 && ZoneRightDot != null)
+                    {
+                        ZoneRightDot.Fill = selectedBrush;
+                    }
+                }
+
+                PositionPickerThumbs();
+            }
+            finally
+            {
+                _isUpdatingColorUi = false;
+            }
+        }
+
+        private void PositionPickerThumbs()
+        {
+            if (SvPickerHost != null && SvPickerThumb != null && SvPickerHost.ActualWidth > 0 && SvPickerHost.ActualHeight > 0)
+            {
+                double x = Clamp01(_currentSat) * SvPickerHost.ActualWidth - (SvPickerThumb.Width / 2.0);
+                double y = (1.0 - Clamp01(_currentVal)) * SvPickerHost.ActualHeight - (SvPickerThumb.Height / 2.0);
+                Canvas.SetLeft(SvPickerThumb, x);
+                Canvas.SetTop(SvPickerThumb, y);
+            }
+
+            if (HueSliderHost != null && HueSliderThumb != null && HueSliderHost.ActualWidth > 0)
+            {
+                double maxLeft = Math.Max(0.0, HueSliderHost.ActualWidth - HueSliderThumb.Width);
+                double hueRatio = Math.Max(0.0, Math.Min(1.0, _currentHue / 360.0));
+                double left = Math.Max(0.0, Math.Min(maxLeft, hueRatio * HueSliderHost.ActualWidth - (HueSliderThumb.Width / 2.0)));
+                Canvas.SetLeft(HueSliderThumb, left);
+            }
+        }
+
+        private void SvPickerHost_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (!_caps.SupportsRgb) return;
+            _isDraggingSv = true;
+            SvPickerHost.CaptureMouse();
+            UpdateSvFromPoint(e.GetPosition(SvPickerHost));
+            e.Handled = true;
+        }
+
+        private void SvPickerHost_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isDraggingSv && e.LeftButton == MouseButtonState.Pressed)
+            {
+                UpdateSvFromPoint(e.GetPosition(SvPickerHost));
+            }
+        }
+
+        private void SvPickerHost_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isDraggingSv)
+            {
+                _isDraggingSv = false;
+                SvPickerHost.ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
+        private void SvPickerHost_SizeChanged(object sender, SizeChangedEventArgs e) => PositionPickerThumbs();
+
+        private void UpdateSvFromPoint(Point pt)
+        {
+            if (SvPickerHost == null || SvPickerHost.ActualWidth <= 0 || SvPickerHost.ActualHeight <= 0) return;
+
+            _currentSat = Clamp01(pt.X / SvPickerHost.ActualWidth);
+            _currentVal = Clamp01(1.0 - (pt.Y / SvPickerHost.ActualHeight));
+
+            Color chosen = HsvToRgb(_currentHue, _currentSat, _currentVal);
+            SetSelectedColor(chosen, updateHsv: false, triggerHardware: true);
+        }
+
+        private void HueSliderHost_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (!_caps.SupportsRgb) return;
+            _isDraggingHue = true;
+            HueSliderHost.CaptureMouse();
+            UpdateHueFromPoint(e.GetPosition(HueSliderHost));
+            e.Handled = true;
+        }
+
+        private void HueSliderHost_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isDraggingHue && e.LeftButton == MouseButtonState.Pressed)
+            {
+                UpdateHueFromPoint(e.GetPosition(HueSliderHost));
+            }
+        }
+
+        private void HueSliderHost_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isDraggingHue)
+            {
+                _isDraggingHue = false;
+                HueSliderHost.ReleaseMouseCapture();
+                e.Handled = true;
+            }
+        }
+
+        private void HueSliderHost_SizeChanged(object sender, SizeChangedEventArgs e) => PositionPickerThumbs();
+
+        private void UpdateHueFromPoint(Point pt)
+        {
+            if (HueSliderHost == null || HueSliderHost.ActualWidth <= 0) return;
+
+            double ratio = Clamp01(pt.X / HueSliderHost.ActualWidth);
+            _currentHue = ratio * 359.99;
+
+            Color chosen = HsvToRgb(_currentHue, _currentSat, _currentVal);
+            SetSelectedColor(chosen, updateHsv: false, triggerHardware: true);
+        }
+
+        private void ColorInput_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter || e.Key == Key.Escape)
+            {
+                (Window.GetWindow(sender as DependencyObject ?? this) ?? Application.Current.MainWindow)?.Focus();
+                e.Handled = true;
+            }
+        }
+
+        private void HexColorInput_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || _isUpdatingColorUi || !_caps.SupportsRgb) return;
+
+            string raw = (HexColorInput.Text ?? string.Empty).Trim().TrimStart('#');
+            if (raw.Length == 6 &&
+                byte.TryParse(raw.Substring(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte r) &&
+                byte.TryParse(raw.Substring(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte g) &&
+                byte.TryParse(raw.Substring(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out byte b))
+            {
+                SetSelectedColor(Color.FromRgb(r, g, b), updateHsv: true, triggerHardware: true, skipTextFieldUpdate: HexColorInput);
+            }
+        }
+
+        private void HexColorInput_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing || _isUpdatingColorUi) return;
+            UpdatePickerVisuals();
+        }
+
+        private void RgbColorInput_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isInitializing || _isUpdatingColorUi || !_caps.SupportsRgb) return;
+
+            if (int.TryParse(RColorInput?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int r) &&
+                int.TryParse(GColorInput?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int g) &&
+                int.TryParse(BColorInput?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int b) &&
+                r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255)
+            {
+                SetSelectedColor(Color.FromRgb((byte)r, (byte)g, (byte)b), updateHsv: true, triggerHardware: true, skipTextFieldUpdate: sender as TextBox);
+            }
+        }
+
+        private void RgbColorInput_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isInitializing || _isUpdatingColorUi) return;
+            UpdatePickerVisuals();
+        }
+
+        private static double Clamp01(double value) => value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+
+        private static void RgbToHsv(byte r, byte g, byte b, out double h, out double s, out double v)
+        {
+            double rd = r / 255.0;
+            double gd = g / 255.0;
+            double bd = b / 255.0;
+
+            double max = Math.Max(rd, Math.Max(gd, bd));
+            double min = Math.Min(rd, Math.Min(gd, bd));
+            double delta = max - min;
+
+            v = max;
+            s = max <= 0.0 ? 0.0 : delta / max;
+
+            if (delta <= 0.00001)
+            {
+                h = 0.0;
+                return;
+            }
+
+            if (Math.Abs(max - rd) < 0.00001)
+            {
+                h = 60.0 * (((gd - bd) / delta) % 6.0);
+            }
+            else if (Math.Abs(max - gd) < 0.00001)
+            {
+                h = 60.0 * (((bd - rd) / delta) + 2.0);
+            }
+            else
+            {
+                h = 60.0 * (((rd - gd) / delta) + 4.0);
+            }
+
+            if (h < 0.0) h += 360.0;
+        }
+
+        private static Color HsvToRgb(double hue, double sat, double val)
+        {
+            double h = ((hue % 360.0) + 360.0) % 360.0;
+            double s = Clamp01(sat);
+            double v = Clamp01(val);
+
+            double c = v * s;
+            double x = c * (1.0 - Math.Abs((h / 60.0) % 2.0 - 1.0));
+            double m = v - c;
+
+            double rp, gp, bp;
+            if (h < 60.0) { rp = c; gp = x; bp = 0.0; }
+            else if (h < 120.0) { rp = x; gp = c; bp = 0.0; }
+            else if (h < 180.0) { rp = 0.0; gp = c; bp = x; }
+            else if (h < 240.0) { rp = 0.0; gp = x; bp = c; }
+            else if (h < 300.0) { rp = x; gp = 0.0; bp = c; }
+            else { rp = c; gp = 0.0; bp = x; }
+
+            byte r = (byte)Math.Round((rp + m) * 255.0);
+            byte g = (byte)Math.Round((gp + m) * 255.0);
+            byte b = (byte)Math.Round((bp + m) * 255.0);
+            return Color.FromRgb(r, g, b);
         }
     }
 }

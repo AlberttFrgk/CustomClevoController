@@ -14,7 +14,7 @@
         NonActiveWindowTitleBrush="#08080A"
         BorderThickness="1"
         BorderBrush="{StaticResource Amoled.CardBorder}"
-        Title="Clevo Control Center"
+        Title="{DynamicResource Loc.AppTitle}"
         ResizeMode="CanMinimize"
         ShowMinButton="True"
         ShowMaxRestoreButton="False"
@@ -73,13 +73,13 @@
 
             <Controls:HamburgerMenu.ItemsSource>
                 <Controls:HamburgerMenuItemCollection>
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/PerformanceSettings_Selected.png" Label="Performance" Tag="PerformanceSettings"/>
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/FanSettings.png" Label="Fan Control" Tag="FanSettings" />
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/KeyboardSettings.png" Label="Keyboard Lighting" Tag="KeyboardSettings" />
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/BatterySettings.png" Label="Battery" Tag="BatterySettings" />
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/OtherSettings.png" Label="System Tools" Tag="OtherSettings" />
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/Settings.png" Label="Settings" Tag="Settings" />
-                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/About.png" Label="About" Tag="About" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/PerformanceSettings_Selected.png" Label="{DynamicResource Loc.NavPerformance}" Tag="PerformanceSettings"/>
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/FanSettings.png" Label="{DynamicResource Loc.NavFan}" Tag="FanSettings" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/KeyboardSettings.png" Label="{DynamicResource Loc.NavKeyboard}" Tag="KeyboardSettings" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/BatterySettings.png" Label="{DynamicResource Loc.NavBattery}" Tag="BatterySettings" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/OtherSettings.png" Label="{DynamicResource Loc.NavTools}" Tag="OtherSettings" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/Settings.png" Label="{DynamicResource Loc.NavSettings}" Tag="Settings" />
+                    <Controls:HamburgerMenuIconItem Icon="/Assets/Main_Window/About.png" Label="{DynamicResource Loc.NavAbout}" Tag="About" />
                 </Controls:HamburgerMenuItemCollection>
             </Controls:HamburgerMenu.ItemsSource>
 
@@ -109,7 +109,7 @@
             <Controls:HamburgerMenu.HamburgerMenuHeaderTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,14,16,14">
-                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" Text="Clevo Control" VerticalAlignment="Center"/>
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" Text="{DynamicResource Loc.NavBrand}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </DataTemplate>
             </Controls:HamburgerMenu.HamburgerMenuHeaderTemplate>

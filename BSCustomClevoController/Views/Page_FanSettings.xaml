@@ -18,14 +18,12 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Section 1: Header -->
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="Fan &amp; Thermal Control" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                <TextBlock Text="Monitor real-time temperatures, select cooling presets, or customize fan speed curves" 
+                <TextBlock Text="{DynamicResource Loc.FanTitle}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                <TextBlock Text="{DynamicResource Loc.FanSubtitle}" 
                            FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,3,0,0" />
             </StackPanel>
 
-            <!-- Section 2: Hardware Telemetry and Balance Slider -->
             <Grid Grid.Row="1" Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -34,7 +32,6 @@
                     <ColumnDefinition x:Name="ColGpu2" Width="0" />
                 </Grid.ColumnDefinitions>
 
-                <!-- CPU Telemetry Card -->
                 <Border x:Name="CpuTelemetryCard" Grid.Column="0" Style="{StaticResource AmoledCardStyle}" Padding="16,12" Margin="0,0,8,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -54,14 +51,13 @@
                                     <Ellipse Width="4.5" Height="4.5" Canvas.Left="9.75" Canvas.Top="9.75" Fill="{StaticResource Amoled.TextPrimary}" />
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock Text="CPU Fan" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanCpu}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <TextBlock x:Name="RpmCpuText" Grid.Row="1" Grid.Column="0" Text="0 RPM   0%   0°C" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.Accent}" Margin="0,6,0,3" />
-                        <TextBlock x:Name="CpuSubtitleText" Grid.Row="2" Grid.Column="0" Text="Processor fan speed, power level, and temperature" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="CpuSubtitleText" Grid.Row="2" Grid.Column="0" Text="{DynamicResource Loc.FanCpuDesc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
 
-                        <!-- Big Brand Logo on Right -->
                         <Viewbox Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="52" Height="52" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="14,0,2,0">
                             <Path x:Name="CpuVendorLogo" Stretch="Uniform" Fill="{StaticResource Amoled.Accent}" Opacity="0.95"
                                   Data="M20.42 7.345v9.18h1.651v-9.18zM0 7.475v1.737h1.737V7.474zm9.78.352v6.053c0 .513.044.945.13 1.292.087.34.235.618.44.828.203.21.475.359.803.451.334.093.754.136 1.255.136h.216v-1.533c-.24 0-.445-.012-.593-.037a.672.672 0 0 1-.39-.173.693.693 0 0 1-.173-.377 4.002 4.002 0 0 1-.037-.606v-2.182h1.193v-1.416h-1.193V7.827zm-3.505 2.312c-.396 0-.76.08-1.082.241-.327.161-.6.384-.822.668l-.087.117v-.902H2.658v6.256h1.639v-3.214c.018-.588.16-1.02.433-1.299.29-.297.642-.445 1.044-.445.476 0 .841.149 1.082.433.235.284.359.686.359 1.2v3.324h1.663V12.97c.006-.89-.229-1.595-.686-2.09-.458-.495-1.1-.742-1.917-.742zm10.065.006a3.252 3.252 0 0 0-2.306.946c-.29.29-.525.637-.692 1.033a3.145 3.145 0 0 0-.254 1.273c0 .452.08.878.241 1.274.161.395.39.742.674 1.032.284.29.637.526 1.045.693.408.173.86.26 1.342.26 1.397 0 2.262-.637 2.782-1.23l-1.187-.904c-.248.297-.841.699-1.583.699-.464 0-.847-.105-1.138-.321a1.588 1.588 0 0 1-.593-.872l-.019-.056h4.915v-.587c0-.451-.08-.872-.235-1.267a3.393 3.393 0 0 0-.661-1.033 3.013 3.013 0 0 0-1.02-.692 3.345 3.345 0 0 0-1.311-.248zm-16.297.118v6.256h1.651v-6.256zm16.278 1.286c1.132 0 1.664.797 1.664 1.255l-3.32.006c0-.458.525-1.255 1.656-1.261z" />
@@ -69,7 +65,6 @@
                     </Grid>
                 </Border>
 
-                <!-- Fan Balance Slider Card -->
                 <Border x:Name="FanBalanceCard" Grid.Column="1" Style="{StaticResource AmoledCardStyle}" Padding="16,12" Margin="8,0,8,0">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -79,7 +74,7 @@
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Fan Speed Balance Offset" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" />
+                                <TextBlock Text="{DynamicResource Loc.FanOffsetTitle}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" />
                             </StackPanel>
                             <TextBlock x:Name="OffsetValueText" Text="0%" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" HorizontalAlignment="Right" />
                         </Grid>
@@ -87,11 +82,10 @@
                                 Style="{StaticResource AmoledSliderStyle}"
                                 Thumb.DragDelta="OffsetSlider_DragDelta" Thumb.DragCompleted="OffsetSlider_DragCompleted" 
                                 MouseUp="OffsetSlider_MouseUp" Margin="0,8,0,8" VerticalAlignment="Center" />
-                        <TextBlock Text="Adds extra fan speed across all cooling modes for lower temperatures" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Grid.Row="2" />
+                        <TextBlock Text="{DynamicResource Loc.FanOffsetDesc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Grid.Row="2" />
                     </Grid>
                 </Border>
 
-                <!-- GPU 1 Telemetry Card -->
                 <Border x:Name="GpuTelemetryCard" Grid.Column="2" Style="{StaticResource AmoledCardStyle}" Padding="16,12" Margin="8,0,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -111,14 +105,13 @@
                                     <Ellipse Width="4.5" Height="4.5" Canvas.Left="9.75" Canvas.Top="9.75" Fill="{StaticResource Amoled.TextPrimary}" />
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock Text="GPU Fan" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanGpu}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <TextBlock x:Name="RpmGpuText" Grid.Row="1" Grid.Column="0" Text="0 RPM   0%   0°C" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.Success}" Margin="0,6,0,3" />
-                        <TextBlock x:Name="GpuSubtitleText" Grid.Row="2" Grid.Column="0" Text="Graphics fan speed, power level, and temperature" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="GpuSubtitleText" Grid.Row="2" Grid.Column="0" Text="{DynamicResource Loc.FanGpuDesc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
 
-                        <!-- Big Brand Logo on Right -->
                         <Viewbox Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="52" Height="52" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="14,0,2,0">
                             <Path x:Name="GpuVendorLogo" Stretch="Uniform" Fill="{StaticResource Amoled.Success}" Opacity="0.95"
                                   Data="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851c-.398 0-.787-.062-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964c-.37 0-.733-.035-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z" />
@@ -126,7 +119,6 @@
                     </Grid>
                 </Border>
 
-                <!-- GPU 2 Telemetry Card (For 3-Fan Enthusiast Configurations) -->
                 <Border x:Name="Gpu2TelemetryCard" Grid.Column="3" Visibility="Collapsed" Style="{StaticResource AmoledCardStyle}" Padding="16,12" Margin="8,0,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -146,14 +138,13 @@
                                     <Ellipse Width="4.5" Height="4.5" Canvas.Left="9.75" Canvas.Top="9.75" Fill="{StaticResource Amoled.TextPrimary}" />
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock Text="GPU 2 Fan" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanGpu2}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <TextBlock x:Name="RpmGpu2Text" Grid.Row="1" Grid.Column="0" Text="0 RPM   0%   0°C" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.Success}" Margin="0,6,0,3" />
-                        <TextBlock x:Name="Gpu2SubtitleText" Grid.Row="2" Grid.Column="0" Text="Secondary graphics fan speed and temperature" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="Gpu2SubtitleText" Grid.Row="2" Grid.Column="0" Text="{DynamicResource Loc.FanGpu2Desc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
 
-                        <!-- Big Brand Logo on Right -->
                         <Viewbox Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="52" Height="52" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="14,0,2,0">
                             <Path x:Name="Gpu2VendorLogo" Stretch="Uniform" Fill="{StaticResource Amoled.Success}" Opacity="0.95"
                                   Data="M8.948 8.798v-1.43a6.7 6.7 0 0 1 .424-.018c3.922-.124 6.493 3.374 6.493 3.374s-2.774 3.851-5.75 3.851c-.398 0-.787-.062-1.158-.185v-4.346c1.528.185 1.837.857 2.747 2.385l2.04-1.714s-1.492-1.952-4-1.952a6.016 6.016 0 0 0-.796.035m0-4.735v2.138l.424-.027c5.45-.185 9.01 4.47 9.01 4.47s-4.08 4.964-8.33 4.964c-.37 0-.733-.035-1.095-.097v1.325c.3.035.61.062.91.062 3.957 0 6.82-2.023 9.593-4.408.459.371 2.34 1.263 2.73 1.652-2.633 2.208-8.772 3.984-12.253 3.984-.335 0-.653-.018-.971-.053v1.864H24V4.063zm0 10.326v1.131c-3.657-.654-4.673-4.46-4.673-4.46s1.758-1.944 4.673-2.262v1.237H8.94c-1.528-.186-2.73 1.245-2.73 1.245s.68 2.412 2.739 3.11M2.456 10.9s2.164-3.197 6.5-3.533V6.201C4.153 6.59 0 10.653 0 10.653s2.35 6.802 8.948 7.42v-1.237c-4.84-.6-6.492-5.936-6.492-5.936z" />
@@ -162,7 +153,6 @@
                 </Border>
             </Grid>
 
-            <!-- Section 3: Cooling Presets Row -->
             <Border Grid.Row="2" Style="{StaticResource AmoledCardStyle}" Padding="14,10" Margin="0,0,0,12">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -180,32 +170,31 @@
                         </Grid.ColumnDefinitions>
 
                         <Button x:Name="AutoModeBtn" Click="AutoModeBtn_Click" Margin="4,0" Style="{StaticResource AmoledButtonStyle}">
-                            <TextBlock Text="Automatic" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanAuto}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Button>
 
                         <Button x:Name="MaxModeBtn" Grid.Column="1" Click="MaxModeBtn_Click" Margin="4,0" Style="{StaticResource AmoledButtonStyle}">
-                            <TextBlock Text="Max Speed" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanMax}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Button>
 
                         <Button x:Name="AntiDustModeBtn" Grid.Column="2" Click="AntiDustModeBtn_Click" Margin="4,0" Style="{StaticResource AmoledButtonStyle}">
-                            <TextBlock Text="Anti-Dust" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanAntiDust}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Button>
 
                         <Button x:Name="MaxQModeBtn" Grid.Column="3" Click="MaxQModeBtn_Click" Margin="4,0" Style="{StaticResource AmoledButtonStyle}">
-                            <TextBlock Text="Max-Q Quiet" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanMaxQ}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Button>
 
                         <Button x:Name="CustomModeBtn" Grid.Column="4" Click="CustomModeBtn_Click" Margin="4,0" Style="{StaticResource AmoledButtonStyle}">
-                            <TextBlock Text="Custom Curve" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.FanCustom}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Button>
                     </Grid>
 
-                    <TextBlock x:Name="FanModeDesText" Grid.Row="1" Text="Automatic cooling mode active." 
+                    <TextBlock x:Name="FanModeDesText" Grid.Row="1" Text="{DynamicResource Loc.FanAutoDesc}" 
                                FontSize="12" Foreground="{StaticResource Amoled.TextSecondary}" Margin="6,8,0,0" />
                 </Grid>
             </Border>
 
-            <!-- Section 4: Custom Fan Curve Editor -->
             <Border Grid.Row="3" Style="{StaticResource AmoledCardStyle}" Padding="16,12">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -216,12 +205,11 @@
 
                     <Grid Grid.Row="0" Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Custom Fan Curve" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" />
-                            <TextBlock Text=" (Active only in Custom Curve mode)" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" Margin="6,0,0,0" />
+                            <TextBlock Text="{DynamicResource Loc.FanCurveHeader}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" />
+                            <TextBlock Text="{DynamicResource Loc.FanCurveSubtitle}" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" Margin="8,0,0,0" />
                         </StackPanel>
                     </Grid>
 
-                    <!-- 2-Column Curves: CPU Curve (Left) & GPU Curve (Right) -->
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -229,98 +217,109 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- CPU Curve Column -->
                         <Border Grid.Column="0" Style="{StaticResource SubCardStyle}" Padding="14,10">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="84" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="CPU Curve" Grid.Row="0" Grid.ColumnSpan="3" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Amoled.TextPrimary}" Margin="0,0,0,8" />
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <TextBlock Text="{DynamicResource Loc.FanCpuCurve}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="CpuCurvePointReadout" Text="30°C–100°C" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
 
-                                <TextBlock Text="Step" Grid.Row="1" Grid.Column="0" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
-                                <TextBlock Text="Temperature (°C)" Grid.Row="1" Grid.Column="1" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
-                                <TextBlock Text="Fan Speed (%)" Grid.Row="1" Grid.Column="2" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
+                                <Grid Grid.Row="1" Margin="0,6,0,2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="170" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="34" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <!-- Point 1 (Min) -->
-                                <TextBlock Text="Point 1 (Min)" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="CPU_Temp1" Grid.Row="2" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="CPU_Speed1" Grid.Row="2" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <Grid Grid.Row="0" Grid.Column="0" Height="170">
+                                        <TextBlock Text="100%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,11,6,0" />
+                                        <TextBlock Text="75%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,46,6,0" />
+                                        <TextBlock Text="50%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,82,6,0" />
+                                        <TextBlock Text="25%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,117,6,0" />
+                                        <TextBlock Text="0%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,152,6,0" />
+                                    </Grid>
 
-                                <!-- Point 2 -->
-                                <TextBlock Text="Point 2" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="CPU_Temp2" Grid.Row="3" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="CPU_Speed2" Grid.Row="3" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <Canvas x:Name="CpuCurveCanvas" Grid.Row="0" Grid.Column="1" Height="170" Background="Transparent" Cursor="Hand" ClipToBounds="False"
+                                            SizeChanged="CpuCurveCanvas_SizeChanged"
+                                            MouseLeftButtonDown="CpuCurveCanvas_MouseLeftButtonDown"
+                                            MouseMove="CpuCurveCanvas_MouseMove"
+                                            MouseLeftButtonUp="CpuCurveCanvas_MouseLeftButtonUp"
+                                            MouseLeave="CpuCurveCanvas_MouseLeave" />
 
-                                <!-- Point 3 -->
-                                <TextBlock Text="Point 3" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="CPU_Temp3" Grid.Row="4" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="CPU_Speed3" Grid.Row="4" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-
-                                <!-- Point 4 (Max) -->
-                                <TextBlock Text="Point 4 (Max)" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="CPU_Temp4" Grid.Row="5" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="CPU_Speed4" Grid.Row="5" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <UniformGrid Grid.Row="1" Grid.Column="1" Rows="1" Columns="8" Margin="0,6,0,0">
+                                        <TextBlock Text="30°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="40°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="50°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="60°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="70°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="80°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="90°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="100°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </UniformGrid>
+                                </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- GPU Curve Column -->
                         <Border Grid.Column="2" Style="{StaticResource SubCardStyle}" Padding="14,10">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="84" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="GPU Curve" Grid.Row="0" Grid.ColumnSpan="3" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Amoled.TextPrimary}" Margin="0,0,0,8" />
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <TextBlock Text="{DynamicResource Loc.FanGpuCurve}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="GpuCurvePointReadout" Text="30°C–100°C" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
 
-                                <TextBlock Text="Step" Grid.Row="1" Grid.Column="0" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
-                                <TextBlock Text="Temperature (°C)" Grid.Row="1" Grid.Column="1" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
-                                <TextBlock Text="Fan Speed (%)" Grid.Row="1" Grid.Column="2" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Amoled.TextMuted}" Margin="4,0,0,4" />
+                                <Grid Grid.Row="1" Margin="0,6,0,2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="170" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="34" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <!-- Point 1 (Min) -->
-                                <TextBlock Text="Point 1 (Min)" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="GPU_Temp1" Grid.Row="2" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="GPU_Speed1" Grid.Row="2" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <Grid Grid.Row="0" Grid.Column="0" Height="170">
+                                        <TextBlock Text="100%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,11,6,0" />
+                                        <TextBlock Text="75%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,46,6,0" />
+                                        <TextBlock Text="50%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,82,6,0" />
+                                        <TextBlock Text="25%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,117,6,0" />
+                                        <TextBlock Text="0%" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,152,6,0" />
+                                    </Grid>
 
-                                <!-- Point 2 -->
-                                <TextBlock Text="Point 2" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="GPU_Temp2" Grid.Row="3" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="GPU_Speed2" Grid.Row="3" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <Canvas x:Name="GpuCurveCanvas" Grid.Row="0" Grid.Column="1" Height="170" Background="Transparent" Cursor="Hand" ClipToBounds="False"
+                                            SizeChanged="GpuCurveCanvas_SizeChanged"
+                                            MouseLeftButtonDown="GpuCurveCanvas_MouseLeftButtonDown"
+                                            MouseMove="GpuCurveCanvas_MouseMove"
+                                            MouseLeftButtonUp="GpuCurveCanvas_MouseLeftButtonUp"
+                                            MouseLeave="GpuCurveCanvas_MouseLeave" />
 
-                                <!-- Point 3 -->
-                                <TextBlock Text="Point 3" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="GPU_Temp3" Grid.Row="4" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="GPU_Speed3" Grid.Row="4" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-
-                                <!-- Point 4 (Max) -->
-                                <TextBlock Text="Point 4 (Max)" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Amoled.TextPrimary}" FontWeight="SemiBold" />
-                                <TextBox x:Name="GPU_Temp4" Grid.Row="5" Grid.Column="1" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
-                                <TextBox x:Name="GPU_Speed4" Grid.Row="5" Grid.Column="2" Style="{StaticResource AmoledTextBoxStyle}" Margin="4,2" TextAlignment="Center" KeyDown="FanPoint_KeyDown" />
+                                    <UniformGrid Grid.Row="1" Grid.Column="1" Rows="1" Columns="8" Margin="0,6,0,0">
+                                        <TextBlock Text="30°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="40°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="50°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="60°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="70°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="80°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="90°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        <TextBlock Text="100°C" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </UniformGrid>
+                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>
 
-                    <!-- Actions Row -->
                     <Grid Grid.Row="2" Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -328,13 +327,13 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock x:Name="CurveStatusMessage" Grid.Column="0" Text="Points must increase gradually up to 100°C and 100% fan speed." 
+                        <TextBlock x:Name="CurveStatusMessage" Grid.Column="0" Text="{DynamicResource Loc.FanCurveDefaultStatus}" 
                                    FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" VerticalAlignment="Center" />
 
-                        <Button x:Name="ResetCustomFan" Grid.Column="1" Content="Reset to Defaults" Click="ResetCustomFan_Click" 
+                        <Button x:Name="ResetCustomFan" Grid.Column="1" Content="{DynamicResource Loc.FanResetDefaults}" Click="ResetCustomFan_Click" 
                                 Style="{StaticResource AmoledButtonStyle}" Margin="0,0,10,0" />
 
-                        <Button x:Name="ApplyCustomFan" Grid.Column="2" Content="Apply Curve" Click="ApplyCustomFan_Click" 
+                        <Button x:Name="ApplyCustomFan" Grid.Column="2" Content="{DynamicResource Loc.FanApplyCurve}" Click="ApplyCustomFan_Click" 
                                 Style="{StaticResource AmoledAccentButtonStyle}" />
                     </Grid>
                 </Grid>

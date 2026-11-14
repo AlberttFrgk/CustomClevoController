@@ -1,23 +1,23 @@
-using System.Runtime.InteropServices;
+using System;
+using System.Threading.Tasks;
 using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Controls
 {
     public class PowerMode
     {
-        private static int SetDCHU_Data(int command, byte[] buffer, int length)
-        {
-            return InsydeDriver.SetDCHU_Data(command, buffer, length);
-        }
+        public static event Action<Mode> PowerProfileChanged;
 
-        private static int WriteAppSettings(int page, int offset, int length, ref byte buffer)
-        {
-            return InsydeDriver.WriteAppSettings(page, offset, length, ref buffer);
-        }
+        private static long _lastPowerCycleTicks;
+        private static readonly object _powerCycleLock = new object();
 
-        public static int ReadAppSettings(int page, int offset, int length, ref byte buffer)
+        public enum Mode
         {
-            return InsydeDriver.ReadAppSettings(page, offset, length, ref buffer);
+            Quiet = 0,
+            Powersaving = 1,
+            Performance = 2,
+            Entertainment = 3,
+            Unknown = 4,
         }
 
         public static Mode GetStatus()
@@ -30,26 +30,17 @@ namespace BSCustomClevoController.Controls
                     return LookupMode((byte)intMode);
                 }
 
-                // Default to Entertainment mode for new installs
                 SetPowerMode(Mode.Entertainment);
                 return Mode.Entertainment;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("PowerMode.GetStatus", ex);
                 return Mode.Entertainment;
             }
         }
 
-        public enum Mode
-        {
-            Quiet = 0,
-            Powersaving = 1,
-            Performance = 2,
-            Entertainment = 3,
-            Unknown = 4,
-        }
-
-        static Mode LookupMode(byte mode)
+        private static Mode LookupMode(byte mode)
         {
             switch (mode)
             {
@@ -66,45 +57,45 @@ namespace BSCustomClevoController.Controls
             try
             {
                 byte value = (byte)mode;
-                SetDCHU_Data(121, new byte[4] { value, 0, 0, 25 }, 4);
-                WriteAppSettings(1, 1, 1, ref value);
+                InsydeDriver.SetDCHU_Data(121, new byte[4] { value, 0, 0, 25 }, 4);
+                InsydeDriver.WriteAppSettings(1, 1, 1, ref value);
 
                 try
                 {
                     Microsoft.Win32.Registry.SetValue(@"HKEY_CURRENT_USER\Software\BSCustomClevoController", "PowerMode", (int)mode);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("PowerMode.SetPowerMode.Registry", ex);
                 }
 
-                System.Threading.Tasks.Task.Run(() =>
+                Task.Run(() =>
                 {
                     try
                     {
                         SystemPreferences.SetDiscreteGpuState(mode != Mode.Powersaving);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        AppLogger.Log("PowerMode.SetDiscreteGpuState", ex);
                     }
                 });
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("PowerMode.SetPowerMode", ex);
             }
         }
-
-        private static System.DateTime _lastPowerCycleTime = System.DateTime.MinValue;
-        private static readonly object _powerCycleLock = new object();
 
         public static Mode CyclePowerMode()
         {
             lock (_powerCycleLock)
             {
-                if (System.DateTime.UtcNow < _lastPowerCycleTime.AddMilliseconds(400))
+                if (MonotonicClock.ElapsedMs(_lastPowerCycleTicks) < 400.0)
                 {
                     return GetStatus();
                 }
-                _lastPowerCycleTime = System.DateTime.UtcNow;
+                _lastPowerCycleTicks = MonotonicClock.NowTicks();
 
                 try
                 {
@@ -128,17 +119,13 @@ namespace BSCustomClevoController.Controls
                     }
                     SetPowerMode(next);
                     OsdOverlay.ShowPowerMode(next);
-
-                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new System.Action(() =>
-                    {
-                        var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                        mainWin?.SyncPowerProfileUI(next);
-                    }));
+                    PowerProfileChanged?.Invoke(next);
 
                     return next;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    AppLogger.Log("PowerMode.CyclePowerMode", ex);
                     return Mode.Entertainment;
                 }
             }

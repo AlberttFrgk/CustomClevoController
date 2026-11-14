@@ -1,14 +1,52 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Principal;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading;
 
 namespace BSCustomClevoController.Utility
 {
     public static class AcpiDriverInstaller
     {
+        private readonly struct ExpectedDriverFile
+        {
+            public readonly string FileName;
+            public readonly long Length;
+            public readonly string Sha256;
+            public readonly string CertThumbprint;
+
+            public ExpectedDriverFile(string fileName, long length, string sha256, string certThumbprint)
+            {
+                FileName = fileName;
+                Length = length;
+                Sha256 = sha256;
+                CertThumbprint = certThumbprint;
+            }
+        }
+
+        private const string PrimaryInfName = "AcpiBridge.inf";
+        private const long AcpiBridgeSysLength = 64032L;
+        private const string AcpiBridgeSysSha256 = "64729BB218EF3ADA9CA4B94565F1285E36782B11F5E4B2B3D467E4053A31E6C0";
+
+        private static readonly ExpectedDriverFile[] ExpectedDriverFiles = new ExpectedDriverFile[]
+        {
+            new ExpectedDriverFile("AcpiBridge.inf", 2531L, "21E665B3121702BFA6D6C6939B7AFA05C6EB7DB6670B847D36E2470C7B997EE8", null),
+            new ExpectedDriverFile("AcpiBridge.sys", AcpiBridgeSysLength, AcpiBridgeSysSha256, "7EC40A94C507A5D67BA991A456661A86387FDAAF"),
+            new ExpectedDriverFile("acpibridge.cat", 11356L, "02D8535755AFA4A8ECDE2F21A8BEF492C1AF8C606B977BB3272E36CA699D4A96", "62C16976BFBBF57B8F8B588A043B4FB0BC294A6D"),
+            new ExpectedDriverFile("AcpiBridge1.Inf", 2720L, "980A9758C30F2B0D88AF8A65FEF460023D6A7AF2E8D1D917E8F4E3BF6B680956", null),
+            new ExpectedDriverFile("AcpiBridge1.sys", 45944L, "13B7F2D7F77B99D007395D4E6B61D6A54B92284CEE84D6A8BAC9453FB4B032CA", "B42FD7CA222DE2478D8EBB0DE3F3824B79D1BC2E"),
+            new ExpectedDriverFile("acpibridge1.cat", 12696L, "FD9092026C59993B73FCE2DACA3C7B48286D197C004718858B977D7D198D8D06", "BDC9B8C37C6B71791A584EC19F2069D98042DC0A")
+        };
+
+        private static readonly object InstalledSysCacheLock = new object();
+        private static long _cachedSysLength = -1;
+        private static long _cachedSysWriteTicks = -1;
+        private static bool _cachedSysAuthentic;
+
         private const string AcpiBridgeDevicePath = @"\\?\ACPI#CLV0001#1#{86994c74-ad43-4812-b7e7-0c420b5c5fd7}";
         private const uint GENERIC_READ = 0x80000000;
         private const uint GENERIC_WRITE = 0x40000000;
@@ -64,10 +102,18 @@ namespace BSCustomClevoController.Utility
         private const uint EWX_REBOOT = 0x00000002;
         private const uint EWX_FORCE = 0x00000004;
 
+        /// <summary>
+        /// Checks whether the authentic Clevo/Insyde ACPI bridge driver is installed and responding.
+        /// </summary>
         public static bool IsDriverWorking()
         {
             try
             {
+                if (!IsInstalledSysAuthentic())
+                {
+                    return false;
+                }
+
                 IntPtr hDevice = CreateFile(
                     AcpiBridgeDevicePath,
                     GENERIC_READ | GENERIC_WRITE,
@@ -83,13 +129,17 @@ namespace BSCustomClevoController.Utility
                     return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("AcpiDriverInstaller.IsDriverWorking", ex);
             }
 
             return false;
         }
 
+        /// <summary>
+        /// Verifies the default AcpiBridge driver folder under a read lock and installs the WHQL-signed Clevo/Insyde driver.
+        /// </summary>
         public static bool InstallDriver(out bool rebootRequired, bool force = false)
         {
             rebootRequired = false;
@@ -98,45 +148,41 @@ namespace BSCustomClevoController.Utility
                 return true;
             }
 
-            string driverDir = FindDriverDirectory();
-            if (string.IsNullOrEmpty(driverDir))
+            string driverDir = GetExpectedDriverDirectory();
+            List<FileStream> lockedStreams;
+            string integrityError;
+            if (!LockAndVerifyDriverPackage(driverDir, out lockedStreams, out integrityError))
             {
+                AppLogger.Log(
+                    "AcpiDriverInstaller.IntegrityViolation",
+                    new UnauthorizedAccessException(integrityError ?? "AcpiBridge driver folder failed integrity verification."));
                 return false;
             }
 
-            string infPrimary = Path.Combine(driverDir, "AcpiBridge.inf");
-            string infSecondary = Path.Combine(driverDir, "AcpiBridge1.Inf");
-
-            if (!File.Exists(infPrimary))
+            try
             {
-                return false;
-            }
+                string infPrimary = Path.Combine(driverDir, PrimaryInfName);
+                int code1 = RunPnpUtil(string.Format("/add-driver \"{0}\" /install", infPrimary), out string out1);
+                // 0 = Success, 3010 = Reboot required, 259 = ERROR_NO_MORE_ITEMS (package added, devices already current or waiting for restart)
+                bool primaryOk = (code1 == 0 || code1 == 3010 || code1 == 259 ||
+                                  out1.IndexOf("successfully", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (!primaryOk)
+                {
+                    return false;
+                }
 
-            int code1 = RunPnpUtil(string.Format("/add-driver \"{0}\" /install", infPrimary), out string out1);
-            // 0 = Success, 3010 = Reboot required, 259 = ERROR_NO_MORE_ITEMS (package added, devices already current or waiting for restart)
-            bool primaryOk = (code1 == 0 || code1 == 3010 || code1 == 259 ||
-                              out1.IndexOf("successfully", StringComparison.OrdinalIgnoreCase) >= 0);
-            if (!primaryOk)
-            {
-                return false;
-            }
-
-            if (code1 == 3010)
-            {
-                rebootRequired = true;
-            }
-
-            if (File.Exists(infSecondary))
-            {
-                int code2 = RunPnpUtil(string.Format("/add-driver \"{0}\" /install", infSecondary), out _);
-                if (code2 == 3010)
+                if (code1 == 3010)
                 {
                     rebootRequired = true;
                 }
-            }
 
-            RunPnpUtil("/scan-devices");
-            EnsureEventLogSource();
+                RunPnpUtil("/scan-devices");
+                EnsureEventLogSource();
+            }
+            finally
+            {
+                DisposeStreams(lockedStreams);
+            }
 
             Thread.Sleep(500);
 
@@ -156,14 +202,281 @@ namespace BSCustomClevoController.Utility
             return true;
         }
 
-        public static bool InstallDriver(out bool rebootRequired)
+        /// <summary>
+        /// Verifies that the default AcpiBridge driver folder next to the application executable is unmodified and complete.
+        /// </summary>
+        public static bool VerifyDriverPackage(out string failureReason)
         {
-            return InstallDriver(out rebootRequired, force: false);
+            return VerifyDriverPackage(GetExpectedDriverDirectory(), out failureReason);
         }
 
-        public static bool EnsureDriverInstalled()
+        /// <summary>
+        /// Verifies that <paramref name="driverDir"/> is the default AcpiBridge folder and contains only the pinned Clevo/Insyde driver files.
+        /// </summary>
+        public static bool VerifyDriverPackage(string driverDir, out string failureReason)
         {
-            return InstallDriver(out _, force: false);
+            List<FileStream> lockedStreams;
+            bool ok = LockAndVerifyDriverPackage(driverDir, out lockedStreams, out failureReason);
+            DisposeStreams(lockedStreams);
+            return ok;
+        }
+
+        private static string GetExpectedDriverDirectory()
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            return NormalizeFullPath(Path.Combine(baseDir, "AcpiBridge"));
+        }
+
+        private static string NormalizeFullPath(string path)
+        {
+            string fullPath = Path.GetFullPath(path);
+            if (fullPath.Length > 3)
+            {
+                fullPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            return fullPath;
+        }
+
+        private static bool IsReparsePoint(string path)
+        {
+            try
+            {
+                return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private static bool IsInstalledSysAuthentic()
+        {
+            try
+            {
+                string sysPath = Path.Combine(Environment.SystemDirectory, @"drivers\AcpiBridge.sys");
+                var info = new FileInfo(sysPath);
+                if (!info.Exists)
+                {
+                    lock (InstalledSysCacheLock)
+                    {
+                        _cachedSysLength = -1;
+                        _cachedSysWriteTicks = -1;
+                        _cachedSysAuthentic = false;
+                    }
+                    return true;
+                }
+
+                if (IsReparsePoint(sysPath))
+                {
+                    return false;
+                }
+
+                long length = info.Length;
+                long writeTicks = info.LastWriteTimeUtc.Ticks;
+                lock (InstalledSysCacheLock)
+                {
+                    if (_cachedSysLength == length && _cachedSysWriteTicks == writeTicks)
+                    {
+                        return _cachedSysAuthentic;
+                    }
+                }
+
+                bool authentic = false;
+                if (length == AcpiBridgeSysLength)
+                {
+                    using (var fs = new FileStream(sysPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        if (fs.Length == AcpiBridgeSysLength)
+                        {
+                            authentic = string.Equals(
+                                ComputeStreamSha256Hex(fs),
+                                AcpiBridgeSysSha256,
+                                StringComparison.OrdinalIgnoreCase);
+                        }
+                    }
+                }
+
+                lock (InstalledSysCacheLock)
+                {
+                    _cachedSysLength = length;
+                    _cachedSysWriteTicks = writeTicks;
+                    _cachedSysAuthentic = authentic;
+                }
+
+                return authentic;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log("AcpiDriverInstaller.IsInstalledSysAuthentic", ex);
+                return false;
+            }
+        }
+
+        private static bool LockAndVerifyDriverPackage(string driverDir, out List<FileStream> lockedStreams, out string failureReason)
+        {
+            lockedStreams = new List<FileStream>();
+            failureReason = null;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(driverDir))
+                {
+                    failureReason = "AcpiBridge driver directory path is empty.";
+                    return false;
+                }
+
+                string expectedDir = GetExpectedDriverDirectory();
+                string normalizedDir = NormalizeFullPath(driverDir);
+                if (!string.Equals(normalizedDir, expectedDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    failureReason = "Driver directory does not match the pinned application AcpiBridge folder.";
+                    return false;
+                }
+
+                string baseDir = NormalizeFullPath(AppDomain.CurrentDomain.BaseDirectory);
+                if (!Directory.Exists(normalizedDir) || IsReparsePoint(baseDir) || IsReparsePoint(normalizedDir))
+                {
+                    failureReason = "AcpiBridge driver folder is missing or uses an unsafe reparse point.";
+                    return false;
+                }
+
+                if (Directory.GetDirectories(normalizedDir).Length != 0)
+                {
+                    failureReason = "Unexpected subdirectory detected inside AcpiBridge driver folder.";
+                    return false;
+                }
+
+                string[] actualFiles = Directory.GetFiles(normalizedDir);
+                if (actualFiles.Length != ExpectedDriverFiles.Length)
+                {
+                    failureReason = "AcpiBridge driver folder file count does not match the pinned manifest.";
+                    return false;
+                }
+
+                var expectedByName = new Dictionary<string, ExpectedDriverFile>(StringComparer.OrdinalIgnoreCase);
+                foreach (ExpectedDriverFile expected in ExpectedDriverFiles)
+                {
+                    expectedByName[expected.FileName] = expected;
+                }
+
+                var verifiedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (string actualPath in actualFiles)
+                {
+                    string fileName = Path.GetFileName(actualPath);
+                    if (!expectedByName.TryGetValue(fileName, out ExpectedDriverFile expected))
+                    {
+                        failureReason = "Unauthorized file present in AcpiBridge driver folder: " + fileName;
+                        DisposeStreams(lockedStreams);
+                        return false;
+                    }
+
+                    if (!VerifySingleDriverFile(actualPath, expected, lockedStreams, out failureReason))
+                    {
+                        DisposeStreams(lockedStreams);
+                        return false;
+                    }
+
+                    verifiedNames.Add(expected.FileName);
+                }
+
+                if (verifiedNames.Count != ExpectedDriverFiles.Length)
+                {
+                    failureReason = "One or more required AcpiBridge driver files are missing.";
+                    DisposeStreams(lockedStreams);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failureReason = ex.Message;
+                DisposeStreams(lockedStreams);
+                return false;
+            }
+        }
+
+        private static bool VerifySingleDriverFile(
+            string filePath,
+            ExpectedDriverFile expected,
+            List<FileStream> lockedStreams,
+            out string failureReason)
+        {
+            failureReason = null;
+
+            if (IsReparsePoint(filePath))
+            {
+                failureReason = "AcpiBridge file cannot be a reparse point: " + expected.FileName;
+                return false;
+            }
+
+            // Keep read-share lock held until verification/installation completes to block concurrent tampering.
+            var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            lockedStreams.Add(fs);
+
+            if (fs.Length != expected.Length)
+            {
+                failureReason = "File size mismatch for AcpiBridge driver file: " + expected.FileName;
+                return false;
+            }
+
+            string actualHash = ComputeStreamSha256Hex(fs);
+            if (!string.Equals(actualHash, expected.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "SHA-256 mismatch for AcpiBridge driver file: " + expected.FileName;
+                return false;
+            }
+
+            if (expected.CertThumbprint != null)
+            {
+                using (X509Certificate baseCert = X509Certificate.CreateFromSignedFile(filePath))
+                using (var cert2 = new X509Certificate2(baseCert))
+                {
+                    if (!string.Equals(cert2.Thumbprint, expected.CertThumbprint, StringComparison.OrdinalIgnoreCase))
+                    {
+                        failureReason = "Signer thumbprint mismatch for AcpiBridge driver file: " + expected.FileName;
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static string ComputeStreamSha256Hex(FileStream stream)
+        {
+            stream.Position = 0;
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(stream);
+                var sb = new StringBuilder(hash.Length * 2);
+                foreach (byte b in hash)
+                {
+                    sb.Append(b.ToString("X2"));
+                }
+                return sb.ToString();
+            }
+        }
+
+        private static void DisposeStreams(List<FileStream> streams)
+        {
+            if (streams == null)
+            {
+                return;
+            }
+
+            foreach (FileStream stream in streams)
+            {
+                try
+                {
+                    stream?.Dispose();
+                }
+                catch
+                {
+                }
+            }
+
+            streams.Clear();
         }
 
         private static void EnableShutdownPrivilege()
@@ -201,6 +514,7 @@ namespace BSCustomClevoController.Utility
                 {
                     FileName = shutdownPath,
                     Arguments = "/r /t 0 /f",
+                    WorkingDirectory = Environment.SystemDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
@@ -213,15 +527,16 @@ namespace BSCustomClevoController.Utility
             }
             catch (Exception ex)
             {
-                App.LogErrorToFile("RestartComputer", ex);
+                AppLogger.Log("RestartComputer", ex);
             }
 
             try
             {
                 var psiPs = new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
+                    FileName = ProcessRunner.ResolveSystemTool("powershell.exe"),
                     Arguments = "-NoProfile -ExecutionPolicy Bypass -Command Restart-Computer -Force",
+                    WorkingDirectory = Environment.SystemDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
@@ -230,35 +545,28 @@ namespace BSCustomClevoController.Utility
                     proc?.WaitForExit(3000);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("RestartComputerFallback", ex);
             }
         }
 
+        /// <summary>
+        /// Returns the pinned AcpiBridge driver folder path only if all expected Clevo/Insyde driver files verify intact.
+        /// </summary>
         public static string FindDriverDirectory()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string[] searchPaths = new string[]
+            try
             {
-                Path.Combine(baseDir, "AcpiBridge"),
-                Path.Combine(baseDir, "..", "AcpiBridge"),
-                Path.Combine(baseDir, "..", "..", "AcpiBridge"),
-                Path.Combine(baseDir, "..", "..", "Drivers", "AcpiBridge")
-            };
-
-            foreach (string searchPath in searchPaths)
+                string candidate = GetExpectedDriverDirectory();
+                if (VerifyDriverPackage(candidate, out _))
+                {
+                    return candidate;
+                }
+            }
+            catch (Exception ex)
             {
-                try
-                {
-                    string infPath = Path.Combine(searchPath, "AcpiBridge.inf");
-                    if (File.Exists(infPath))
-                    {
-                        return Path.GetFullPath(searchPath);
-                    }
-                }
-                catch
-                {
-                }
+                AppLogger.Log("AcpiDriverInstaller.FindDriverDirectory", ex);
             }
 
             return null;
@@ -283,12 +591,11 @@ namespace BSCustomClevoController.Utility
                 DeletePublishedDriversMatching("acpibridge");
 
                 RunPnpUtil("/scan-devices");
-                StartupManager.SetRunAtStartup(false);
                 return true;
             }
             catch (Exception ex)
             {
-                App.LogErrorToFile("UninstallDriver", ex);
+                AppLogger.Log("UninstallDriver", ex);
                 return false;
             }
         }
@@ -298,41 +605,24 @@ namespace BSCustomClevoController.Utility
             try
             {
                 string pnpPath = GetSystemToolPath("pnputil.exe");
-                var psi = new ProcessStartInfo
+                if (ProcessRunner.Run(pnpPath, "/enum-drivers", 10000, out string output) >= 0 && !string.IsNullOrEmpty(output))
                 {
-                    FileName = pnpPath,
-                    Arguments = "/enum-drivers",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
+                    var lines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                    string currentPublishedName = null;
 
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
+                    foreach (string line in lines)
                     {
-                        string output = proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(10000);
-
-                        var lines = output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-                        string currentPublishedName = null;
-
-                        foreach (string line in lines)
+                        string trimmed = line.Trim();
+                        if (trimmed.StartsWith("Published Name:", StringComparison.OrdinalIgnoreCase))
                         {
-                            string trimmed = line.Trim();
-                            if (trimmed.StartsWith("Published Name:", StringComparison.OrdinalIgnoreCase))
+                            currentPublishedName = trimmed.Substring(trimmed.IndexOf(':') + 1).Trim();
+                        }
+                        else if (trimmed.StartsWith("Original Name:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string origName = trimmed.Substring(trimmed.IndexOf(':') + 1).Trim();
+                            if (origName.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0 && IsSafePublishedInfName(currentPublishedName))
                             {
-                                currentPublishedName = trimmed.Substring(trimmed.IndexOf(':') + 1).Trim();
-                            }
-                            else if (trimmed.StartsWith("Original Name:", StringComparison.OrdinalIgnoreCase))
-                            {
-                                string origName = trimmed.Substring(trimmed.IndexOf(':') + 1).Trim();
-                                if (origName.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0 && !string.IsNullOrEmpty(currentPublishedName))
-                                {
-                                    RunPnpUtil(string.Format("/delete-driver {0} /uninstall /force", currentPublishedName));
-                                }
+                                RunPnpUtil(string.Format("/delete-driver {0} /uninstall /force", currentPublishedName));
                             }
                         }
                     }
@@ -340,8 +630,29 @@ namespace BSCustomClevoController.Utility
             }
             catch (Exception ex)
             {
-                App.LogErrorToFile("DeletePublishedDriversMatching", ex);
+                AppLogger.Log("DeletePublishedDriversMatching", ex);
             }
+        }
+
+        private static bool IsSafePublishedInfName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || name.Length < 8 || name.Length > 32)
+            {
+                return false;
+            }
+            if (!name.StartsWith("oem", StringComparison.OrdinalIgnoreCase) ||
+                !name.EndsWith(".inf", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            for (int i = 3; i < name.Length - 4; i++)
+            {
+                if (name[i] < '0' || name[i] > '9')
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static int RunProcess(string fileName, string arguments)
@@ -352,6 +663,7 @@ namespace BSCustomClevoController.Utility
                 {
                     FileName = fileName,
                     Arguments = arguments,
+                    WorkingDirectory = Environment.SystemDirectory,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
@@ -394,35 +706,15 @@ namespace BSCustomClevoController.Utility
             try
             {
                 string pnpPath = GetSystemToolPath("pnputil.exe");
-                var psi = new ProcessStartInfo
-                {
-                    FileName = pnpPath,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
-                    {
-                        string stdout = proc.StandardOutput.ReadToEnd();
-                        string stderr = proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(15000);
-                        output = (stdout + "\n" + stderr).Trim();
-                        return proc.ExitCode;
-                    }
-                }
+                int code = ProcessRunner.Run(pnpPath, arguments, 15000, out string raw);
+                output = raw.Trim();
+                return code;
             }
             catch (Exception ex)
             {
-                App.LogErrorToFile("RunPnpUtil", ex);
+                AppLogger.Log("RunPnpUtil", ex);
+                return -1;
             }
-
-            return -1;
         }
 
         private static int RunPnpUtil(string arguments)

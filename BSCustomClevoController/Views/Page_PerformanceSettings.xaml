@@ -49,14 +49,12 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                <TextBlock Text="Power &amp; Performance" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                <TextBlock Text="Performance modes to balance laptop speed, power, and fan noise" 
+                <TextBlock Text="{DynamicResource Loc.PerfTitle}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                <TextBlock Text="{DynamicResource Loc.PerfSubtitle}" 
                            FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,3,0,0" />
             </StackPanel>
 
-            <!-- 4 Mode Cards Grid -->
             <Grid Grid.Row="1" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -65,7 +63,6 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Quiet Mode -->
                 <Button x:Name="QuietModeBtn" Style="{StaticResource ModeCardButtonStyle}" Grid.Column="0"
                         Click="QuietModeBtn_Click" MouseMove="QuietModeBtn_MouseMove">
                     <Grid Margin="18,24,18,26">
@@ -78,19 +75,18 @@
                         
                         <Border x:Name="QuietActiveBadge" Background="#1B365D" BorderBrush="{StaticResource Amoled.Accent}" BorderThickness="1" CornerRadius="6" Padding="9,3" 
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                            <TextBlock x:Name="QuietActiveText" Text="Active" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
+                            <TextBlock x:Name="QuietActiveText" Text="{DynamicResource Loc.PerfActive}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
                         </Border>
                         
                         <Image Source="pack://application:,,,/BSCustomClevoController;component/Assets/Page_PerformanceSettings/icon_slient.png" 
                                Grid.Row="1" Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,16,0,20" RenderOptions.BitmapScalingMode="HighQuality" />
                         
-                        <TextBlock x:Name="QuietModeBtnText" Text="Quiet" FontSize="20" FontWeight="Bold" 
+                        <TextBlock x:Name="QuietModeBtnText" Text="{DynamicResource Loc.PerfQuiet}" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.TextPrimary}" TextAlignment="Center" Grid.Row="2" />
-                        <TextBlock Text="Fans run at minimum speed for quiet environments" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
+                        <TextBlock Text="{DynamicResource Loc.PerfQuietDesc}" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
                     </Grid>
                 </Button>
 
-                <!-- Power Saving Mode -->
                 <Button x:Name="PowerSaveModeBtn" Style="{StaticResource ModeCardButtonStyle}" Grid.Column="1"
                         Click="PowerSaveModeBtn_Click" MouseMove="PowerSaveModeBtn_MouseMove">
                     <Grid Margin="18,24,18,26">
@@ -103,19 +99,18 @@
                         
                         <Border x:Name="PowerSaveActiveBadge" Background="#1B365D" BorderBrush="{StaticResource Amoled.Accent}" BorderThickness="1" CornerRadius="6" Padding="9,3" 
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                            <TextBlock x:Name="PowerSaveActiveText" Text="Active" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
+                            <TextBlock x:Name="PowerSaveActiveText" Text="{DynamicResource Loc.PerfActive}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
                         </Border>
                         
                         <Image Source="pack://application:,,,/BSCustomClevoController;component/Assets/Page_PerformanceSettings/icon_powersave.png" 
                                Grid.Row="1" Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,16,0,20" RenderOptions.BitmapScalingMode="HighQuality" />
                         
-                        <TextBlock x:Name="PowerSaveModeBtnText" Text="Power Saver" FontSize="20" FontWeight="Bold" 
+                        <TextBlock x:Name="PowerSaveModeBtnText" Text="{DynamicResource Loc.PerfPowerSaver}" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.TextPrimary}" TextAlignment="Center" Grid.Row="2" />
-                        <TextBlock Text="Reduces power consumption to maximize battery life" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
+                        <TextBlock Text="{DynamicResource Loc.PerfPowerSaverDesc}" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
                     </Grid>
                 </Button>
 
-                <!-- Entertainment Mode -->
                 <Button x:Name="EntertainmentModeBtn" Style="{StaticResource ModeCardButtonStyle}" Grid.Column="2"
                         Click="EntertainmentModeBtn_Click" MouseMove="EntertainmentModeBtn_MouseMove">
                     <Grid Margin="18,24,18,26">
@@ -128,19 +123,18 @@
                         
                         <Border x:Name="EntertainmentActiveBadge" Background="#1B365D" BorderBrush="{StaticResource Amoled.Accent}" BorderThickness="1" CornerRadius="6" Padding="9,3" 
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                            <TextBlock x:Name="EntertainmentActiveText" Text="Active" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
+                            <TextBlock x:Name="EntertainmentActiveText" Text="{DynamicResource Loc.PerfActive}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
                         </Border>
                         
                         <Image Source="pack://application:,,,/BSCustomClevoController;component/Assets/Page_PerformanceSettings/icon_entartainment.png" 
                                Grid.Row="1" Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,16,0,20" RenderOptions.BitmapScalingMode="HighQuality" />
                         
-                        <TextBlock x:Name="EntertainmentModeBtnText" Text="Entertainment" FontSize="20" FontWeight="Bold" 
+                        <TextBlock x:Name="EntertainmentModeBtnText" Text="{DynamicResource Loc.PerfEntertainment}" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.TextPrimary}" TextAlignment="Center" Grid.Row="2" />
-                        <TextBlock Text="Balanced power and cooling for daily tasks and gaming" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
+                        <TextBlock Text="{DynamicResource Loc.PerfEntertainmentDesc}" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
                     </Grid>
                 </Button>
 
-                <!-- Full Performance Mode -->
                 <Button x:Name="PerformanceModeBtn" Style="{StaticResource ModeCardButtonStyle}" Grid.Column="3"
                         Click="PerformanceModeBtn_Click" MouseMove="PerformanceModeBtn_MouseMove">
                     <Grid Margin="18,24,18,26">
@@ -153,20 +147,19 @@
                         
                         <Border x:Name="PerformanceActiveBadge" Background="#1B365D" BorderBrush="{StaticResource Amoled.Accent}" BorderThickness="1" CornerRadius="6" Padding="9,3" 
                                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
-                            <TextBlock x:Name="PerformanceActiveText" Text="Active" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
+                            <TextBlock x:Name="PerformanceActiveText" Text="{DynamicResource Loc.PerfActive}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Accent}" />
                         </Border>
                         
                         <Image Source="pack://application:,,,/BSCustomClevoController;component/Assets/Page_PerformanceSettings/icon_performance.png" 
                                Grid.Row="1" Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,16,0,20" RenderOptions.BitmapScalingMode="HighQuality" />
                         
-                        <TextBlock x:Name="PerformanceModeBtnText" Text="Performance" FontSize="20" FontWeight="Bold" 
+                        <TextBlock x:Name="PerformanceModeBtnText" Text="{DynamicResource Loc.PerfPerformance}" FontSize="20" FontWeight="Bold" 
                                    Foreground="{StaticResource Amoled.TextPrimary}" TextAlignment="Center" Grid.Row="2" />
-                        <TextBlock Text="Maximum power and cooling for heavy workloads and gaming" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
+                        <TextBlock Text="{DynamicResource Loc.PerfPerformanceDesc}" FontSize="12" Foreground="{StaticResource Amoled.TextMuted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" LineHeight="17" Grid.Row="3" />
                     </Grid>
                 </Button>
             </Grid>
 
-            <!-- Section 2: Profile Details -->
             <Border Grid.Row="2" Style="{StaticResource AmoledCardStyle}" Padding="18,14" Margin="0,0,0,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -175,7 +168,7 @@
                     </Grid.ColumnDefinitions>
                     
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Text="Profile Details" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc.PerfProfileDetails}" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
                     </StackPanel>
                     
                     <TextBlock Grid.Column="1" x:Name="modeDetais" FontSize="12" Foreground="{StaticResource Amoled.TextSecondary}" TextWrapping="Wrap" 
@@ -183,10 +176,9 @@
                 </Grid>
             </Border>
 
-            <!-- Section 3: Hardware Policies & Power Tuning -->
             <Border Grid.Row="3" Style="{StaticResource AmoledCardStyle}" Padding="18,16">
                 <StackPanel>
-                    <TextBlock Text="Hardware Energy Policies" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" Margin="0,0,0,12" />
+                    <TextBlock Text="{DynamicResource Loc.PerfEnergyHeader}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" Margin="0,0,0,12" />
                     
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -195,7 +187,6 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <!-- Left Column: Energy Star 1.5C -->
                         <Border x:Name="EnergyStarCard" Grid.Column="0" Style="{StaticResource SubCardStyle}" Padding="12,10">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -203,14 +194,13 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Deep Sleep (Energy Star)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Enables low-power sleep when idle to reduce power consumption" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.PerfDeepSleep}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.PerfDeepSleepDesc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="EnergyStarSwitch" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}" Click="EnergyStarSwitch_Click" VerticalAlignment="Center" IsChecked="True" />
                             </Grid>
                         </Border>
 
-                        <!-- Right Column: PCIe ASPM Dynamic Tuning -->
                         <Border x:Name="DynamicTuningCard" Grid.Column="2" Style="{StaticResource SubCardStyle}" Padding="12,10">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -218,8 +208,8 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="PCIe Power Saving (ASPM)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Reduces power consumption of internal devices (graphics and storage) when idle" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.PerfPcieAspm}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.PerfPcieAspmDesc}" FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="DynamicTuningSwitch" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}" Click="DynamicTuningSwitch_Click" VerticalAlignment="Center" IsChecked="True" />
                             </Grid>

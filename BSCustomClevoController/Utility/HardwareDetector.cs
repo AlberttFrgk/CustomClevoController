@@ -31,8 +31,9 @@ namespace BSCustomClevoController.Utility
                     cpuModel = val.ToString().Trim();
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("HardwareDetector.DetectCpu", ex);
             }
 
             if (cpuModel.IndexOf("AMD", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -56,91 +57,60 @@ namespace BSCustomClevoController.Utility
             {
                 using (RegistryKey baseKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"))
                 {
-                    if (baseKey != null)
+                    if (baseKey == null)
+                        return GpuBrand.Unknown;
+
+                    GpuBrand bestBrand = GpuBrand.Unknown;
+                    string bestModel = null;
+
+                    foreach (string sub in baseKey.GetSubKeyNames())
                     {
-                        string[] subKeys = baseKey.GetSubKeyNames();
+                        if (!sub.StartsWith("0"))
+                            continue;
 
-                        // 1. First priority: Discrete NVIDIA GPU
-                        foreach (string sub in subKeys)
+                        using (RegistryKey subKey = baseKey.OpenSubKey(sub))
                         {
-                            if (sub.StartsWith("0"))
+                            object descVal = subKey?.GetValue("DriverDesc") ?? subKey?.GetValue("ProviderName");
+                            if (descVal == null)
+                                continue;
+
+                            string desc = descVal.ToString();
+                            if (desc.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                desc.IndexOf("GeForce", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                desc.IndexOf("RTX", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                desc.IndexOf("GTX", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                desc.IndexOf("Quadro", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                using (RegistryKey subKey = baseKey.OpenSubKey(sub))
-                                {
-                                    if (subKey != null)
-                                    {
-                                        object descVal = subKey.GetValue("DriverDesc") ?? subKey.GetValue("ProviderName");
-                                        if (descVal != null)
-                                        {
-                                            string desc = descVal.ToString();
-                                            if (desc.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                desc.IndexOf("GeForce", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                desc.IndexOf("RTX", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                desc.IndexOf("GTX", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                desc.IndexOf("Quadro", StringComparison.OrdinalIgnoreCase) >= 0)
-                                            {
-                                                gpuModel = desc;
-                                                return GpuBrand.Nvidia;
-                                            }
-                                        }
-                                    }
-                                }
+                                gpuModel = desc;
+                                return GpuBrand.Nvidia;
                             }
-                        }
 
-                        // 2. Second priority: Discrete AMD Radeon GPU
-                        foreach (string sub in subKeys)
-                        {
-                            if (sub.StartsWith("0"))
+                            if (bestBrand == GpuBrand.Unknown &&
+                                (desc.IndexOf("Radeon", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 desc.IndexOf("AMD", StringComparison.OrdinalIgnoreCase) >= 0))
                             {
-                                using (RegistryKey subKey = baseKey.OpenSubKey(sub))
-                                {
-                                    if (subKey != null)
-                                    {
-                                        object descVal = subKey.GetValue("DriverDesc") ?? subKey.GetValue("ProviderName");
-                                        if (descVal != null)
-                                        {
-                                            string desc = descVal.ToString();
-                                            if (desc.IndexOf("Radeon", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                desc.IndexOf("AMD", StringComparison.OrdinalIgnoreCase) >= 0)
-                                            {
-                                                gpuModel = desc;
-                                                return GpuBrand.Amd;
-                                            }
-                                        }
-                                    }
-                                }
+                                bestBrand = GpuBrand.Amd;
+                                bestModel = desc;
                             }
-                        }
-
-                        // 3. Third priority: Intel Arc / Xe / Integrated
-                        foreach (string sub in subKeys)
-                        {
-                            if (sub.StartsWith("0"))
+                            else if (bestBrand == GpuBrand.Unknown &&
+                                     desc.IndexOf("Intel", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                using (RegistryKey subKey = baseKey.OpenSubKey(sub))
-                                {
-                                    if (subKey != null)
-                                    {
-                                        object descVal = subKey.GetValue("DriverDesc") ?? subKey.GetValue("ProviderName");
-                                        if (descVal != null)
-                                        {
-                                            string desc = descVal.ToString();
-                                            if (desc.IndexOf("Intel", StringComparison.OrdinalIgnoreCase) >= 0)
-                                            {
-                                                gpuModel = desc;
-                                                return GpuBrand.Intel;
-                                            }
-                                        }
-                                    }
-                                }
+                                bestBrand = GpuBrand.Intel;
+                                bestModel = desc;
                             }
                         }
                     }
+
+                    if (bestBrand != GpuBrand.Unknown)
+                    {
+                        gpuModel = bestModel;
+                        return bestBrand;
+                    }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("HardwareDetector.DetectGpu", ex);
             }
 
             return GpuBrand.Unknown;

@@ -22,7 +22,7 @@ namespace BSCustomClevoController
             DispatcherUnhandledException += (s, args) =>
             {
 
-                string logPath = LogErrorToFile("DispatcherUnhandledException", args.Exception);
+                string logPath = Utility.AppLogger.Log("DispatcherUnhandledException", args.Exception);
                 MessageBox.Show(
 
                     "An unexpected error occurred (saved to " + logPath + "):\n\n" + args.Exception.Message + "\n\nStack Trace:\n" + args.Exception.StackTrace,
@@ -37,7 +37,7 @@ namespace BSCustomClevoController
                 if (args.ExceptionObject is Exception ex)
                 {
     
-                    string logPath = LogErrorToFile("UnhandledException", ex);
+                    string logPath = Utility.AppLogger.Log("UnhandledException", ex);
                     MessageBox.Show(
                         "A critical error occurred (saved to " + logPath + "):\n\n" + ex.Message + "\n\nStack Trace:\n" + ex.StackTrace,
                         "Critical Error",
@@ -49,6 +49,20 @@ namespace BSCustomClevoController
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            if (e.Args != null)
+            {
+                foreach (string arg in e.Args)
+                {
+                    if (string.Equals(arg, "/uninstall", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Utility.StartupManager.SetRunAtStartup(false);
+                        Shutdown();
+                        return;
+                    }
+                }
+            }
+
             bool createdNew;
             try
             {
@@ -66,7 +80,6 @@ namespace BSCustomClevoController
 
             if (!createdNew)
             {
-                // Signal running instance to bring window to foreground
                 EventWaitHandle wakeHandle;
                 if (EventWaitHandle.TryOpenExisting(WakeEventName, out wakeHandle))
                 {
@@ -76,7 +89,6 @@ namespace BSCustomClevoController
                     }
                 }
 
-                // Exit quietly without warning or notification
                 Shutdown();
                 return;
             }
@@ -98,6 +110,8 @@ namespace BSCustomClevoController
 
             _waitRegistration = ThreadPool.RegisterWaitForSingleObject(_wakeEvent, OnWakeRequested, null, -1, false);
 
+            Utility.LocalizationManager.Initialize();
+
             var theme = ThemeManager.Current.AddLibraryTheme(new LibraryTheme(
                 new Uri("pack://application:,,,/BSCustomClevoController;component/Dark.BlueBlack.xaml"),
                 MahAppsLibraryThemeProvider.DefaultInstance));
@@ -105,8 +119,8 @@ namespace BSCustomClevoController
             if (!Utility.AcpiDriverInstaller.IsDriverWorking())
             {
                 var confirmResult = MessageBox.Show(
-                    "Custom Clevo Controller requires the AcpiBridge driver to control fans, power modes, and keyboard lighting.\n\nInstalling this driver requires restarting your PC.\n\nWould you like to install the driver and restart your PC?",
-                    "AcpiBridge Driver Setup",
+                    Utility.LocalizationManager.T("DlgDriverSetupMsg"),
+                    Utility.LocalizationManager.T("DlgDriverSetupTitle"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
 
@@ -123,8 +137,8 @@ namespace BSCustomClevoController
                 {
                     Utility.StartupManager.SetRunAtStartup(true);
                     var restartChoice = MessageBox.Show(
-                        "AcpiBridge driver installed successfully.\n\nWould you like to restart your PC now to finish setup?",
-                        "Restart PC",
+                        Utility.LocalizationManager.T("DlgDriverInstalledMsg"),
+                        Utility.LocalizationManager.T("DlgDriverInstalledTitle"),
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question);
 
@@ -137,14 +151,24 @@ namespace BSCustomClevoController
                 else
                 {
                     MessageBox.Show(
-                        "Failed to install the AcpiBridge driver. Please ensure the driver files exist in the AcpiBridge folder and try again.",
-                        "Driver Installation Error",
+                        Utility.LocalizationManager.T("DlgDriverErrorMsg"),
+                        Utility.LocalizationManager.T("DlgDriverErrorTitle"),
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
                 }
 
                 Shutdown();
                 return;
+            }
+
+            // Keep startup permanent once the AcpiBridge driver is installed.
+            if (!Utility.StartupManager.IsRunAtStartupEnabled())
+            {
+                Utility.StartupManager.SetRunAtStartup(true);
+            }
+            else
+            {
+                Utility.StartupManager.EnsureConfiguredCorrectly();
             }
 
             base.OnStartup(e);
@@ -181,16 +205,18 @@ namespace BSCustomClevoController
                         Controls.KeyboardEffects.DisableSoftwareAnimationForExit();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Utility.AppLogger.Log("App.CleanupOnExit.KeyboardEffects", ex);
                 }
 
                 try
                 {
                     Utility.SystemPreferences.Shutdown();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Utility.AppLogger.Log("App.CleanupOnExit.SystemPreferences", ex);
                 }
             }
         }
@@ -219,31 +245,19 @@ namespace BSCustomClevoController
 
             if (_appMutex != null)
             {
-                try { _appMutex.ReleaseMutex(); } catch { }
+                try
+                {
+                    _appMutex.ReleaseMutex();
+                }
+                catch (ApplicationException)
+                {
+                    // Mutex was not owned by exiting thread
+                }
                 _appMutex.Dispose();
                 _appMutex = null;
             }
 
             base.OnExit(e);
-        }
-
-        public static string LogErrorToFile(string context, Exception ex)
-        {
-            string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "error_log.txt");
-            try
-            {
-                string entry = string.Format(
-                    "[{1:yyyy-MM-dd HH:mm:ss}] {2}{0}{3}{0}{0}",
-                    Environment.NewLine,
-                    DateTime.Now,
-                    context,
-                    ex);
-                System.IO.File.AppendAllText(logPath, entry);
-            }
-            catch
-            {
-            }
-            return logPath;
         }
     }
 }

@@ -1,6 +1,5 @@
 using BSCustomClevoController.Utility;
 using System;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -14,15 +13,29 @@ namespace BSCustomClevoController.Views
 {
     public partial class Page_BatterySettings : Page
     {
+        private static readonly SolidColorBrush BrushCriticalRed = CreateBrush(239, 68, 68);
+        private static readonly SolidColorBrush BrushWarningAmber = CreateBrush(245, 158, 11);
+        private static readonly SolidColorBrush BrushChargingCyan = CreateBrush(27, 161, 226);
+        private static readonly SolidColorBrush BrushHealthyGreen = CreateBrush(16, 185, 129);
+        private static readonly SolidColorBrush BrushMutedSlate = CreateBrush(148, 163, 184);
+
         private readonly DispatcherTimer _liveBatteryTimer;
         private readonly DispatcherTimer _statusClearTimer;
         private bool _isInitializing = false;
+
+        private static SolidColorBrush CreateBrush(byte r, byte g, byte b)
+        {
+            var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            return brush;
+        }
 
         public Page_BatterySettings()
         {
             InitializeComponent();
             LoadBatterySettings();
             SyncLiveBatteryStatus();
+            LocalizationManager.LanguageChanged += () => SyncLiveBatteryStatus();
 
             _liveBatteryTimer = new DispatcherTimer
             {
@@ -66,8 +79,9 @@ namespace BSCustomClevoController.Views
                 CustomStopBox.Text = status.StopThreshold.ToString();
                 UpdateThresholdPanelState();
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_BatterySettings.LoadBatterySettings", ex);
                 MaxChargeRadio.IsChecked = true;
                 UpdateThresholdPanelState();
             }
@@ -91,23 +105,22 @@ namespace BSCustomClevoController.Views
                 LiveBatteryPercentText.Text = percent + "%";
                 LiveBatteryProgressBar.Value = percent;
 
-                // Dynamic battery health indicator color
                 SolidColorBrush indicatorBrush;
                 if (percent <= 20)
                 {
-                    indicatorBrush = new SolidColorBrush(Color.FromRgb(239, 68, 68)); // Red / Low
+                    indicatorBrush = BrushCriticalRed;
                 }
                 else if (percent <= 45)
                 {
-                    indicatorBrush = new SolidColorBrush(Color.FromRgb(245, 158, 11)); // Amber / Moderate
+                    indicatorBrush = BrushWarningAmber;
                 }
                 else if (isCharging)
                 {
-                    indicatorBrush = new SolidColorBrush(Color.FromRgb(27, 161, 226)); // Electric Cyan / Charging
+                    indicatorBrush = BrushChargingCyan;
                 }
                 else
                 {
-                    indicatorBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129)); // Emerald Green / Healthy
+                    indicatorBrush = BrushHealthyGreen;
                 }
 
                 LiveBatteryPercentText.Foreground = indicatorBrush;
@@ -117,46 +130,45 @@ namespace BSCustomClevoController.Views
                 {
                     if (isCharging)
                     {
-                        LivePowerSourceText.Text = "AC Connected (Charging)";
-                        LivePowerSourceText.Foreground = new SolidColorBrush(Color.FromRgb(27, 161, 226));
+                        LivePowerSourceText.Text = LocalizationManager.Format("BatSourceAcFmt", LocalizationManager.T("BatStateCharging"));
+                        LivePowerSourceText.Foreground = BrushChargingCyan;
                     }
                     else if (percent >= 99)
                     {
-                        LivePowerSourceText.Text = "AC Connected (Fully Charged)";
-                        LivePowerSourceText.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
+                        LivePowerSourceText.Text = LocalizationManager.Format("BatSourceAcFmt", LocalizationManager.T("BatStateFull"));
+                        LivePowerSourceText.Foreground = BrushHealthyGreen;
                     }
                     else
                     {
-                        LivePowerSourceText.Text = "AC Connected (Plugged In)";
+                        LivePowerSourceText.Text = LocalizationManager.Format("BatSourceAcFmt", LocalizationManager.T("BatStatePluggedIn"));
                         LivePowerSourceText.Foreground = (SolidColorBrush)FindResource("Amoled.TextPrimary");
                     }
                 }
                 else
                 {
-                    LivePowerSourceText.Text = "On Battery (Discharging)";
+                    LivePowerSourceText.Text = LocalizationManager.T("BatSourceBattery");
                     LivePowerSourceText.Foreground = (percent <= 20)
-                        ? new SolidColorBrush(Color.FromRgb(239, 68, 68))
+                        ? BrushCriticalRed
                         : (SolidColorBrush)FindResource("Amoled.TextPrimary");
                 }
 
                 BatteryChargeStatus status = BatteryControl.GetStatus();
                 if (!status.Enabled || status.Mode == BatteryChargeMode.Maximum)
                 {
-                    LiveLimitStatusText.Text = "Disabled (Full 100% Charge)";
-                    LiveLimitStatusText.Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184));
+                    LiveLimitStatusText.Text = LocalizationManager.T("BatLimitDisabled");
+                    LiveLimitStatusText.Foreground = BrushMutedSlate;
                 }
                 else if (status.Mode == BatteryChargeMode.Recommended)
                 {
-                    LiveLimitStatusText.Text = "Recommended (70% - 80%)";
-                    LiveLimitStatusText.Foreground = new SolidColorBrush(Color.FromRgb(27, 161, 226));
+                    LiveLimitStatusText.Text = LocalizationManager.T("BatLimitRecommended");
+                    LiveLimitStatusText.Foreground = BrushChargingCyan;
                 }
                 else
                 {
-                    LiveLimitStatusText.Text = string.Format("Custom ({0}% - {1}%)", status.StartThreshold, status.StopThreshold);
-                    LiveLimitStatusText.Foreground = new SolidColorBrush(Color.FromRgb(27, 161, 226));
+                    LiveLimitStatusText.Text = LocalizationManager.Format("BatLimitCustomFmt", status.StartThreshold, status.StopThreshold);
+                    LiveLimitStatusText.Foreground = BrushChargingCyan;
                 }
 
-                // Query live battery telemetry (voltage & wattage)
                 BatteryTelemetry telemetry = BatteryControl.GetTelemetry();
 
                 if (telemetry.VoltageMv > 0)
@@ -172,28 +184,29 @@ namespace BSCustomClevoController.Views
                 if (telemetry.ChargeRateMw > 0)
                 {
                     double watts = telemetry.ChargeRateMw / 1000.0;
-                    LiveChargeRateText.Text = string.Format("+{0:0.0} W (Charging)", watts);
-                    LiveChargeRateText.Foreground = new SolidColorBrush(Color.FromRgb(27, 161, 226));
+                    LiveChargeRateText.Text = string.Format("+{0:0.0} W ({1})", watts, LocalizationManager.T("BatStateCharging"));
+                    LiveChargeRateText.Foreground = BrushChargingCyan;
                 }
                 else if (isCharging)
                 {
-                    LiveChargeRateText.Text = "Charging";
-                    LiveChargeRateText.Foreground = new SolidColorBrush(Color.FromRgb(27, 161, 226));
+                    LiveChargeRateText.Text = LocalizationManager.T("BatStateCharging");
+                    LiveChargeRateText.Foreground = BrushChargingCyan;
                 }
                 else if (telemetry.DischargeRateMw > 0)
                 {
                     double watts = telemetry.DischargeRateMw / 1000.0;
-                    LiveChargeRateText.Text = string.Format("-{0:0.0} W (Discharging)", watts);
+                    LiveChargeRateText.Text = string.Format("-{0:0.0} W ({1})", watts, LocalizationManager.T("BatStateDischarging"));
                     LiveChargeRateText.Foreground = (SolidColorBrush)FindResource("Amoled.TextSecondary");
                 }
                 else
                 {
-                    LiveChargeRateText.Text = isAc ? "0.0 W (Idle)" : "0.0 W";
+                    LiveChargeRateText.Text = isAc ? string.Format("0.0 W ({0})", LocalizationManager.T("BatStateIdle")) : "0.0 W";
                     LiveChargeRateText.Foreground = (SolidColorBrush)FindResource("Amoled.TextMuted");
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_BatterySettings.SyncLiveBatteryStatus", ex);
             }
         }
 
@@ -214,7 +227,7 @@ namespace BSCustomClevoController.Views
             }
         }
 
-                private void CustomThresholdBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private void CustomThresholdBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == System.Windows.Input.Key.Enter)
             {
@@ -260,19 +273,19 @@ namespace BSCustomClevoController.Views
 
                     if (!int.TryParse(CustomStartBox.Text.Trim(), out start) || start < 40 || start > 99)
                     {
-                        ShowStatusMessage("Start percentage must be between 40% and 99%.", isError: true);
+                        ShowStatusMessage(LocalizationManager.T("BatWarnStartRange"), isError: true);
                         return;
                     }
 
                     if (!int.TryParse(CustomStopBox.Text.Trim(), out stop) || stop < 50 || stop > 100)
                     {
-                        ShowStatusMessage("Stop percentage must be between 50% and 100%.", isError: true);
+                        ShowStatusMessage(LocalizationManager.T("BatWarnStopRange"), isError: true);
                         return;
                     }
 
                     if (start >= stop)
                     {
-                        ShowStatusMessage("Start percentage must be lower than stop percentage.", isError: true);
+                        ShowStatusMessage(LocalizationManager.T("BatWarnStartBelowStop"), isError: true);
                         return;
                     }
                 }
@@ -280,27 +293,25 @@ namespace BSCustomClevoController.Views
                 bool success = BatteryControl.SetChargeMode(selectedMode, start, stop);
                 if (success)
                 {
-                    ShowStatusMessage("Battery settings applied.", isError: false);
+                    ShowStatusMessage(LocalizationManager.T("BatApplied"), isError: false);
                     SyncLiveBatteryStatus();
                     _statusClearTimer.Start();
                 }
                 else
                 {
-                    ShowStatusMessage("Failed to apply battery settings to EC.", isError: true);
+                    ShowStatusMessage(LocalizationManager.T("BatApplyFailed"), isError: true);
                 }
             }
             catch (Exception ex)
             {
-                ShowStatusMessage("Error: " + ex.Message, isError: true);
+                ShowStatusMessage(LocalizationManager.Format("CommonErrorFmt", ex.Message), isError: true);
             }
         }
 
         private void ShowStatusMessage(string message, bool isError)
         {
             BatteryStatusText.Text = message;
-            BatteryStatusText.Foreground = isError
-                ? new SolidColorBrush(Color.FromRgb(239, 68, 68))
-                : new SolidColorBrush(Color.FromRgb(16, 185, 129));
+            BatteryStatusText.Foreground = isError ? BrushCriticalRed : BrushHealthyGreen;
         }
     }
 }

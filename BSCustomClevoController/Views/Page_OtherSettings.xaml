@@ -16,14 +16,12 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="System Tools &amp; Hardware Preferences" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-            <TextBlock Text="Hardware toggles, keyboard locks, display settings, and graphics controls" 
+            <TextBlock Text="{DynamicResource Loc.ToolsTitle}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+            <TextBlock Text="{DynamicResource Loc.ToolsSubtitle}" 
                        FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,2,0,0" />
         </StackPanel>
 
-        <!-- 2-Column Main Content -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -31,14 +29,11 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left Column: Device Hardware, Keyboard Locks & Network Utilities -->
             <Border Grid.Column="0" Style="{StaticResource AmoledCardStyle}" Padding="16,10">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <!-- Section 1: Device Hardware & Locks -->
-                        <TextBlock Text="Device Hardware &amp; Locks" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,6" />
+                        <TextBlock Text="{DynamicResource Loc.ToolsHardware}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,6" />
 
-                        <!-- Camera row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -51,14 +46,13 @@
                                           Stroke="{StaticResource Amoled.Success}" StrokeThickness="1.4" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Integrated Webcam" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Turn internal webcam on or off" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWebcam}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWebcamDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefCameraSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefCameraBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Microphone row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -71,14 +65,13 @@
                                           Fill="{StaticResource Amoled.Accent}" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Internal Microphone" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Turn internal microphone on or off" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsMic}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsMicDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefMicSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefMicBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Airplane Mode row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -91,14 +84,13 @@
                                           Fill="{StaticResource Amoled.Warning}" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Airplane Mode" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Turn off Wi-Fi and Bluetooth" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsAirplane}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsAirplaneDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefAirplaneSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefAirplaneBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Lock Keys Row (Caps Lock, Num Lock, Scroll Lock) -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,6">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -108,37 +100,32 @@
                                     <ColumnDefinition Width="1" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <!-- Caps Lock -->
                                 <StackPanel Grid.Column="0" HorizontalAlignment="Center" Margin="6,1">
-                                    <TextBlock Text="Caps Lock" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsCapsLock}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
                                     <CheckBox x:Name="PrefCapsSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefCapsLockBtn_Click" HorizontalAlignment="Center" />
                                 </StackPanel>
                                 <Rectangle Grid.Column="1" Fill="{StaticResource Amoled.InnerCardBorder}" Margin="0,2" />
-                                <!-- Num Lock -->
                                 <StackPanel Grid.Column="2" HorizontalAlignment="Center" Margin="6,1">
-                                    <TextBlock Text="Num Lock" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsNumLock}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
                                     <CheckBox x:Name="PrefNumSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefNumLockBtn_Click" HorizontalAlignment="Center" />
                                 </StackPanel>
                                 <Rectangle Grid.Column="3" Fill="{StaticResource Amoled.InnerCardBorder}" Margin="0,2" />
-                                <!-- Scroll Lock -->
                                 <StackPanel Grid.Column="4" HorizontalAlignment="Center" Margin="6,1">
-                                    <TextBlock Text="Scroll Lock" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsScrollLock}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" HorizontalAlignment="Center" Margin="0,0,0,3" />
                                     <CheckBox x:Name="PrefScrSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefScrLockBtn_Click" HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- Section 2: Keyboard & Navigation -->
                         <Grid Margin="0,2,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Keyboard &amp; Navigation" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
-                            <Button x:Name="ResetKeyboardPrefsBtn" Grid.Column="1" Content="Reset to Defaults" Style="{StaticResource AmoledButtonStyle}" Height="20" Padding="8,0" FontSize="10" Click="ResetKeyboardPrefsBtn_Click" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Loc.ToolsKeyboardHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                            <Button x:Name="ResetKeyboardPrefsBtn" Grid.Column="1" Content="{DynamicResource Loc.CommonResetDefaults}" Style="{StaticResource AmoledButtonStyle}" MinHeight="24" Padding="10,2" FontSize="10" Click="ResetKeyboardPrefsBtn_Click" VerticalAlignment="Center" />
                         </Grid>
 
-                        <!-- Win key lock row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -151,14 +138,13 @@
                                           Fill="{StaticResource Amoled.Accent}" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Windows Key Lock" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Locks the Windows key to prevent accidental presses while gaming" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWinLock}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWinLockDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefWinKeySwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefWinKeyBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Swap Win-Fn row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -172,14 +158,13 @@
                                           Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Swap Windows and Fn Keys" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock x:Name="PrefSwapWinFnSubtitle" Text="Swaps the functions of the Windows and Fn keys" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsSwapWinFn}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock x:Name="PrefSwapWinFnSubtitle" Text="{DynamicResource Loc.ToolsSwapWinFnDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefSwapWinFnSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefSwapWinFnBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Fn-key Lock row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -193,14 +178,13 @@
                                     </Border>
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Function Key Lock (Fn Lock)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Use F1 through F12 for volume and brightness without pressing Fn" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsFnLock}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsFnLockDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefFnLockSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefFnLockBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Touchpad row -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,6">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -213,17 +197,15 @@
                                           Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Precision Touchpad" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Turn laptop touchpad on or off" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsTouchpad}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsTouchpadDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
                                 <CheckBox x:Name="PrefTouchpadSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefTouchpadBtn_Click" VerticalAlignment="Center" />
                             </Grid>
                         </Border>
 
-                        <!-- Section 3: Platform & Network Utilities -->
-                        <TextBlock Text="Platform &amp; Network Tools" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,2,0,6" />
+                        <TextBlock Text="{DynamicResource Loc.ToolsPlatformHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,2,0,6" />
 
-                        <!-- Wake on LAN row -->
                         <Border x:Name="PrefWolCard" Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -235,20 +217,19 @@
                                     <Path Data="M 2,14 H 18 M 5,14 V 18 M 15,14 V 18 M 3,18 H 17 M 10,2 A 5,5 0 0 1 15,7 M 10,5 A 2,2 0 0 1 12,7"
                                           Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Wake on LAN" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                        <Border x:Name="PrefWolBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="Allows network devices to wake this computer from sleep" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWol}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsWolDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
-                                <CheckBox x:Name="PrefWolSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefWolBtn_Click" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Border x:Name="PrefWolBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </Border>
+                                    <CheckBox x:Name="PrefWolSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefWolBtn_Click" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- Ethernet LED row -->
                         <Border x:Name="PrefEthLedCard" Style="{StaticResource SubCardStyle}" Padding="10,4" Margin="0,0,0,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -260,20 +241,19 @@
                                     <Path Data="M 4,4 H 16 V 12 H 13 V 15 H 7 V 12 H 4 Z M 8,8 H 12"
                                           Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Ethernet Status LED" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                        <Border x:Name="PrefEthLedBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="Turn network port status lights on or off" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="{DynamicResource Loc.ToolsEthLed}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsEthLedDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
-                                <CheckBox x:Name="PrefEthLedSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefEthLedBtn_Click" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Border x:Name="PrefEthLedBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </Border>
+                                    <CheckBox x:Name="PrefEthLedSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="PrefEthLedBtn_Click" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- USB Hub Reset row -->
                         <Border x:Name="PrefUsbResetCard" Style="{StaticResource SubCardStyle}" Padding="10,4">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -285,50 +265,27 @@
                                     <Path Data="M 10,2 V 14 M 6,6 L 10,2 L 14,6 M 10,14 A 2,2 0 1 1 10,18 A 2,2 0 1 1 10,14"
                                           Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="USB Hub Reset" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                        <Border x:Name="PrefUsbResetBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="Reset internal USB connections to fix frozen devices" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="{DynamicResource Loc.ToolsUsbReset}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsUsbResetDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
-                                <Button x:Name="PrefUsbResetBtn" Grid.Column="2" Content="Reset Hub" Style="{StaticResource AmoledButtonStyle}" Height="26" Padding="10,1" FontSize="11" Click="PrefUsbResetBtn_Click" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Border x:Name="PrefUsbResetBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </Border>
+                                    <Button x:Name="PrefUsbResetBtn" Content="{DynamicResource Loc.ToolsUsbResetBtn}" Style="{StaticResource AmoledButtonStyle}" MinHeight="28" Padding="10,3" FontSize="11" Click="PrefUsbResetBtn_Click" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
 
-            <!-- Right Column: Display & Graphics Controls & GPU Tuning -->
             <Border Grid.Column="2" Style="{StaticResource AmoledCardStyle}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <!-- Section: Display & Screen Controls -->
-                        <TextBlock Text="Display &amp; Graphics Controls" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,8" />
+                        <TextBlock Text="{DynamicResource Loc.ToolsDisplay}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,8" />
 
-                        <!-- Instant Screen Off card -->
-                        <Border Style="{StaticResource SubCardStyle}" Padding="10,8" Margin="0,0,0,6">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6" Background="{StaticResource Amoled.CardBackground}" BorderBrush="{StaticResource Amoled.CardBorder}" BorderThickness="1" Margin="0,0,10,0">
-                                    <Path Data="M 3,4 H 17 V 14 H 3 Z M 8,17 H 12 M 10,14 V 17"
-                                          Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Instant Screen Off" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Turns off the screen immediately while keeping your programs running" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
-                                </StackPanel>
-                                <Button x:Name="TurnOffScreenBtn" Grid.Column="2" Content="Turn Off" Style="{StaticResource AmoledButtonStyle}" Height="28" Padding="12,1" FontSize="11" Click="TurnOffScreenBtn_Click" VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
-
-                        <!-- Display Refresh Rate Card -->
                         <Border Style="{StaticResource SubCardStyle}" Padding="10,8" Margin="0,0,0,6">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -346,8 +303,8 @@
                                               Stroke="{StaticResource Amoled.Success}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Display Refresh Rate" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                        <TextBlock Text="Switch between 60 Hz battery saving and native high-refresh rate" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                        <TextBlock Text="{DynamicResource Loc.ToolsRefreshRate}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                        <TextBlock Text="{DynamicResource Loc.ToolsRefreshDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                     </StackPanel>
                                     <Border x:Name="RefreshRateBadge" Grid.Column="2" Background="#1B3E32" BorderBrush="{StaticResource Amoled.Success}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
                                         <TextBlock x:Name="RefreshRateCurrentText" Text="144 Hz" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" />
@@ -359,13 +316,12 @@
                                         <ColumnDefinition Width="8" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Button x:Name="Refresh60Btn" Grid.Column="0" Content="60 Hz (Power Saver)" Style="{StaticResource AmoledButtonStyle}" Height="30" FontSize="11" Click="Refresh60Btn_Click" />
-                                    <Button x:Name="RefreshNativeBtn" Grid.Column="2" Content="High Refresh (Smooth)" Style="{StaticResource AmoledAccentButtonStyle}" Height="30" FontSize="11" Click="RefreshNativeBtn_Click" />
+                                    <Button x:Name="Refresh60Btn" Grid.Column="0" Content="{DynamicResource Loc.ToolsRefresh60Btn}" Style="{StaticResource AmoledButtonStyle}" MinHeight="32" Padding="10,4" FontSize="11" Click="Refresh60Btn_Click" />
+                                    <Button x:Name="RefreshNativeBtn" Grid.Column="2" Content="{DynamicResource Loc.ToolsRefreshHighBtn}" Style="{StaticResource AmoledAccentButtonStyle}" MinHeight="32" Padding="10,4" FontSize="11" Click="RefreshNativeBtn_Click" />
                                 </Grid>
                             </Grid>
                         </Border>
 
-                        <!-- GPU MUX Switch (Hybrid Graphics) Card -->
                         <Border x:Name="GpuMuxCard" Style="{StaticResource SubCardStyle}" Padding="10,8" Margin="0,0,0,10">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -377,24 +333,22 @@
                                     <Path Data="M 3,6 H 8 V 14 H 3 Z M 12,6 H 17 V 14 H 12 Z M 8,10 H 12"
                                           Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="GPU MUX Switch" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                        <Border x:Name="GpuMuxBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock x:Name="GpuMuxBadgeText" Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                        </Border>
-                                    </StackPanel>
-                                    <TextBlock Text="Connect display directly to dedicated graphics for best gaming performance (Requires restart)" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="{DynamicResource Loc.ToolsGpuMuxTitle}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource Loc.ToolsGpuMuxDesc}" FontSize="10" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                 </StackPanel>
-                                <CheckBox x:Name="GpuMuxSwitch" Grid.Column="2" Style="{StaticResource AmoledToggleSwitchStyle}" Click="GpuMuxSwitch_Click" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Border x:Name="GpuMuxBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock x:Name="GpuMuxBadgeText" Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                    </Border>
+                                    <CheckBox x:Name="GpuMuxSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" Click="GpuMuxSwitch_Click" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Grid>
                         </Border>
 
-                        <!-- Section: Performance & Overclocking Tuning -->
                         <StackPanel x:Name="PerformanceTuningSection">
-                            <TextBlock Text="Performance &amp; Overclocking" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,6" />
+                            <TextBlock Text="{DynamicResource Loc.ToolsPerfOcHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,6" />
 
-                            <!-- CPU Performance Card -->
                             <Border x:Name="CpuPerformanceCard" Style="{StaticResource SubCardStyle}" Padding="10,6" Margin="0,0,0,5">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -403,7 +357,6 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <!-- Header Row -->
                                     <Grid Grid.Row="0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -416,35 +369,32 @@
                                                       Width="13" Height="13" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="CPU Performance &amp; Overclock" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                                <TextBlock Text="{DynamicResource Loc.ToolsCpuPowerTitle}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
                                                 <TextBlock x:Name="CpuNameText" Text="Processor" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                             </StackPanel>
                                         </StackPanel>
                                         <Border x:Name="CpuOcBadge" Grid.Column="1" Background="#1B3E32" BorderBrush="{StaticResource Amoled.Success}" BorderThickness="1" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
-                                            <TextBlock x:Name="CpuOcBadgeText" Text="Stock Frequency" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" />
+                                            <TextBlock x:Name="CpuOcBadgeText" Text="{DynamicResource Loc.ToolsCpuStockBadge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" />
                                         </Border>
                                     </Grid>
 
-                                    <!-- Slider Row -->
                                     <Slider x:Name="CpuPowerSlider" Grid.Row="1" Minimum="0" Maximum="25" SmallChange="5" LargeChange="5"
                                             TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,4" VerticalAlignment="Center"
                                             Style="{StaticResource AmoledSliderStyle}"
                                             ValueChanged="CpuPowerSlider_ValueChanged" />
 
-                                    <!-- Details Row -->
                                     <Grid Grid.Row="2">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="CpuOcDescriptionText" Text="Processor power and speed managed by hardware" 
+                                        <TextBlock x:Name="CpuOcDescriptionText" Text="{DynamicResource Loc.ToolsCpuOcLockedDesc}" 
                                                    FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" VerticalAlignment="Center" LineHeight="13" />
-                                        <TextBlock x:Name="CpuOcStatusSubText" Grid.Column="1" Text="Autonomous Speed Shift" FontSize="9" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        <TextBlock x:Name="CpuOcStatusSubText" Grid.Column="1" Text="{DynamicResource Loc.ToolsCpuStockSub}" FontSize="9" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
                                     </Grid>
                                 </Grid>
                             </Border>
 
-                            <!-- GPU Performance Card -->
                             <Border x:Name="NvidiaTgpCard" Style="{StaticResource SubCardStyle}" Padding="10,6" Margin="0,0,0,5">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -453,7 +403,6 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <!-- Header Row -->
                                     <Grid Grid.Row="0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -465,91 +414,86 @@
                                                       Stroke="{StaticResource Amoled.Accent}" StrokeThickness="1.4" Width="13" Height="13" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="GPU Power Target &amp; Overclock" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                                <TextBlock Text="{DynamicResource Loc.ToolsGpuPowerTitle}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
                                                 <TextBlock x:Name="NvidiaGpuNameText" Text="NVIDIA GeForce" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                             </StackPanel>
                                         </StackPanel>
                                         <Border Grid.Column="1" Background="#1B3E32" BorderBrush="{StaticResource Amoled.Success}" BorderThickness="1" CornerRadius="4" Padding="5,1" VerticalAlignment="Center">
-                                            <TextBlock x:Name="TgpOffsetText" Text="+0W (Stock)" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" />
+                                            <TextBlock x:Name="TgpOffsetText" Text="{DynamicResource Loc.ToolsGpuStockBadge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Amoled.Success}" />
                                         </Border>
                                     </Grid>
 
-                                    <!-- Slider Row -->
                                     <Slider x:Name="TgpOffsetSlider" Grid.Row="1" Minimum="0" Maximum="25" SmallChange="5" LargeChange="5"
                                             TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,4,0,4" VerticalAlignment="Center"
                                             Style="{StaticResource AmoledSliderStyle}"
                                             ValueChanged="TgpOffsetSlider_ValueChanged" />
 
-                                    <!-- Details Row -->
                                     <Grid Grid.Row="2">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Adjusts graphics card power limit for extra performance" 
+                                        <TextBlock Text="{DynamicResource Loc.ToolsGpuPowerDesc}" 
                                                    FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" VerticalAlignment="Center" LineHeight="13" />
-                                        <TextBlock Grid.Column="1" Text="Range: 0W to +25W" FontSize="9" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                        <TextBlock Grid.Column="1" Text="{DynamicResource Loc.ToolsGpuPowerRange}" FontSize="9" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" Margin="8,0,0,0" />
                                     </Grid>
                                 </Grid>
                             </Border>
 
-                            <!-- CPU Multiplier Overclocking (Disabled if unsupported) -->
                             <Border x:Name="CpuMultiplierOcCard" Style="{StaticResource SubCardStyle}" Padding="10,5" Margin="0,0,0,4" Opacity="0.55">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="CPU Overclocking" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                            <Border x:Name="CpuMultiplierOcBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                                <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                            </Border>
-                                        </StackPanel>
-                                        <TextBlock Text="Multiplier and voltage tuning for unlocked processors (K/HK/HX)" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource Loc.ToolsCpuMultiplierOc}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Loc.ToolsCpuMultiplierOcDesc}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                     </StackPanel>
-                                    <CheckBox x:Name="CpuMultiplierOcSwitch" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <Border x:Name="CpuMultiplierOcBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        </Border>
+                                        <CheckBox x:Name="CpuMultiplierOcSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- All-Mode GPU Overclocking (Disabled if unsupported) -->
                             <Border x:Name="AllModeGpuOcCard" Style="{StaticResource SubCardStyle}" Padding="10,5" Margin="0,0,0,4" Opacity="0.55">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="GPU Overclocking" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                            <Border x:Name="AllModeGpuOcBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                                <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                            </Border>
-                                        </StackPanel>
-                                        <TextBlock Text="Bypasses power limits for graphics core and memory overclocking" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource Loc.ToolsAllModeGpuOc}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Loc.ToolsAllModeGpuOcDesc}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                     </StackPanel>
-                                    <CheckBox x:Name="AllModeGpuOcSwitch" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <Border x:Name="AllModeGpuOcBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        </Border>
+                                        <CheckBox x:Name="AllModeGpuOcSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
 
-                            <!-- XMP Memory Profiles (Disabled if unsupported) -->
                             <Border x:Name="XmpCard" Style="{StaticResource SubCardStyle}" Padding="10,5" Margin="0,0,0,4" Opacity="0.55">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="XMP Profiles" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
-                                            <Border x:Name="XmpBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
-                                                <TextBlock Text="Not supported on this model" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
-                                            </Border>
-                                        </StackPanel>
-                                        <TextBlock Text="Enables high-performance memory timings and custom RAM voltages" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="{DynamicResource Loc.ToolsXmp}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource Loc.ToolsXmpDesc}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" Margin="0,1,0,0" />
                                     </StackPanel>
-                                    <CheckBox x:Name="XmpSwitch" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <Border x:Name="XmpBadge" Background="#1C1C24" BorderBrush="#3C3C46" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{DynamicResource Loc.CommonNotSupported}" FontSize="9" Foreground="{StaticResource Amoled.TextMuted}" />
+                                        </Border>
+                                        <CheckBox x:Name="XmpSwitch" Style="{StaticResource AmoledToggleSwitchStyle}" IsEnabled="False" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </StackPanel>

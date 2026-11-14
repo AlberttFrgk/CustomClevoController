@@ -116,13 +116,12 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Utility\CleDef.cs" />
     <Compile Include="Utility\Clevo_MSG.cs" />
     <Compile Include="Utility\DebugLog.cs" />
-    <Compile Include="Controls\FanControl.cs" />
     <Compile Include="Utility\Global.cs" />
     <Compile Include="Utility\InsydeDriver.cs" />
     <Compile Include="Utility\language.cs" />
+    <Compile Include="Utility\LocalizationManager.cs" />
     <Compile Include="Utility\RWIni.cs" />
     <Compile Include="Utility\RWReg.cs" />
     <Compile Include="Utility\Support_BIT.cs" />
@@ -136,6 +135,7 @@
 
 
     <Compile Include="Controls\BatteryControl.cs" />
+    <Compile Include="Utility\AppLogger.cs" />
     <Compile Include="Utility\Capabilities.cs" />
     <Compile Include="Controls\CpuPowerControl.cs" />
     <Compile Include="Controls\DisplayControl.cs" />
@@ -143,13 +143,18 @@
     <Compile Include="Utility\HardwareDetector.cs" />
     <Compile Include="Controls\IteHidController.cs" />
     <Compile Include="Controls\KeyboardBackLight.cs" />
+    <Compile Include="Controls\KeyboardEffect.cs" />
     <Compile Include="Controls\KeyboardEffects.cs" />
-    <Compile Include="Utility\Monitor.cs" />
+    <Compile Include="Utility\MonotonicClock.cs" />
+    <Compile Include="Utility\NativeMethods.cs" />
     <Compile Include="Controls\NvidiaPowerControl.cs" />
     <Compile Include="Controls\PowerMode.cs" />
-    <Compile Include="Utility\Structs.cs" />
+    <Compile Include="Utility\ProcessRunner.cs" />
     <Compile Include="Utility\StartupManager.cs" />
     <Compile Include="Utility\SystemPreferences.cs" />
+    <Compile Include="Utility\SystemPreferences.Devices.cs" />
+    <Compile Include="Utility\SystemPreferences.Events.cs" />
+    <Compile Include="Utility\SystemPreferences.KeyboardHook.cs" />
     <Compile Include="Utility\AcpiDriverInstaller.cs" />
     <Compile Include="Controls\Touchpad.cs" />
     <Compile Include="Utility\OsdOverlay.cs" />
@@ -177,6 +182,7 @@
     <Compile Include="Views\OsdWindow.xaml.cs">
       <DependentUpon>OsdWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\UiFocusHelper.cs" />
     <Page Include="Dark.BlueBlack.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -251,6 +257,11 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Localization\*.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
@@ -302,10 +313,6 @@
     <Resource Include="Assets\Page_PerformanceSettings\icon_powersave.png" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Assets\Page_FanSettings\button.png" />
-    <Resource Include="Assets\Page_FanSettings\middle.png" />
-  </ItemGroup>
-  <ItemGroup>
     <Resource Include="Assets\Main_Window\FanSettings_Selected.png" />
     <Resource Include="Assets\Main_Window\KeyboardSettings_Selected.png" />
     <Resource Include="Assets\Main_Window\OtherSettings_Selected.png" />
@@ -321,7 +328,6 @@
     <Resource Include="Assets\OSD\osd_Fn_lock_enable.png" />
     <Resource Include="Assets\OSD\osd_winkey_lock_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_winkey_unlock_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_Gaming_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_airplane_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_airplane_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_backlight_1_cc40_1.png" />
@@ -332,27 +338,18 @@
     <Resource Include="Assets\OSD\osd_backlight_low_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_backlight_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_backlight_on_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_balanced_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_cameraMic_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_cameraMic_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_camera_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_camera_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_caps_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_caps_on_cc40_1.png" />
-
-
-    <Resource Include="Assets\OSD\osd_docking_off_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_docking_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_entetainment2_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_fan_speed_AntiDustRuning_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_fan_speed_Custom_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_fan_speed_MaxQ_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_fan_speed_Turbo_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_fan_speed_auto_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_fan_speed_max_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_fan_speed_silent_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_gc_off_cc40_1.png" />
-    <Resource Include="Assets\OSD\osd_gc_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_num_off_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_num_on_cc40_1.png" />
     <Resource Include="Assets\OSD\osd_peformance2_cc40_1.png" />

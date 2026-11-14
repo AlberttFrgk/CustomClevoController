@@ -1,32 +1,15 @@
 using System;
-using System.Runtime.InteropServices;
-using BSCustomClevoController.Utility;
+using BSCustomClevoController.Utility;
 
 namespace BSCustomClevoController.Controls
 {
     public static class CpuPowerControl
     {
-        private static int ReadAppSettings(int page, int offset, int length, ref byte buffer)
-        {
-            return InsydeDriver.ReadAppSettings(page, offset, length, ref buffer);
-        }
-
-        private static int WriteAppSettings(int page, int offset, int length, ref byte buffer)
-        {
-            return InsydeDriver.WriteAppSettings(page, offset, length, ref buffer);
-        }
-
         private static string _cpuModel;
         private static int _cachedCpuPowerOffset = 0;
         private static bool _powerLoaded = false;
 
-        public static bool IsSupported
-        {
-            get
-            {
-                return Capabilities.IsSupported("SupportCPUOC");
-            }
-        }
+        public static bool IsSupported => Capabilities.IsSupported("SupportCPUOC");
 
         public static string CpuModel
         {
@@ -59,19 +42,13 @@ namespace BSCustomClevoController.Controls
             try
             {
                 byte[] array = new byte[4];
-                ReadAppSettings(6, 33, 4, ref array[0]);
+                InsydeDriver.ReadAppSettings(6, 33, 4, ref array[0]);
                 int val = BitConverter.ToInt32(array, 0);
-                if (val >= 0 && val <= 25)
-                {
-                    _cachedCpuPowerOffset = val;
-                }
-                else
-                {
-                    _cachedCpuPowerOffset = 0;
-                }
+                _cachedCpuPowerOffset = (val >= 0 && val <= 25) ? val : 0;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("CpuPowerControl.GetPowerOffset", ex);
                 _cachedCpuPowerOffset = 0;
             }
 
@@ -91,21 +68,19 @@ namespace BSCustomClevoController.Controls
 
             try
             {
-                // DCHU AppSettings Page 6:
-                // Offset 32: IsSaved flag (1)
-                // Offset 33: PL1 (4 bytes)
-                // Offset 37: PL2 (4 bytes)
+                // DCHU AppSettings Page 6: 32 = IsSaved flag, 33 = PL1 (4 bytes), 37 = PL2 (4 bytes)
                 byte saveFlag = 1;
-                WriteAppSettings(6, 32, 1, ref saveFlag);
+                InsydeDriver.WriteAppSettings(6, 32, 1, ref saveFlag);
 
                 byte[] pl1Bytes = BitConverter.GetBytes(offsetWatts);
-                WriteAppSettings(6, 33, 4, ref pl1Bytes[0]);
+                InsydeDriver.WriteAppSettings(6, 33, 4, ref pl1Bytes[0]);
 
                 byte[] pl2Bytes = BitConverter.GetBytes(offsetWatts);
-                WriteAppSettings(6, 37, 4, ref pl2Bytes[0]);
+                InsydeDriver.WriteAppSettings(6, 37, 4, ref pl2Bytes[0]);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("CpuPowerControl.SetPowerOffset", ex);
             }
         }
     }

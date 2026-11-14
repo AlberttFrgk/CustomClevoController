@@ -222,39 +222,30 @@ namespace BSCustomClevoController.Utility
             try
             {
                 tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".xml");
-                File.WriteAllText(tempFile, xml, System.Text.Encoding.Unicode);
-
-                var psi = new ProcessStartInfo("schtasks.exe", string.Format("/create /f /tn \"{0}\" /xml \"{1}\"", TaskName, tempFile))
+                using (var fs = new FileStream(tempFile, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(fs, System.Text.Encoding.Unicode))
                 {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
-                    {
-                        proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(5000);
-                        return proc.ExitCode == 0;
-                    }
+                    writer.Write(xml);
                 }
+
+                return ProcessRunner.Run(
+                    ProcessRunner.ResolveSystemTool("schtasks.exe"),
+                    string.Format("/create /f /tn \"{0}\" /xml \"{1}\"", TaskName, tempFile),
+                    5000,
+                    out _) == 0;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("StartupManager.RegisterTaskViaXmlCli", ex);
                 return false;
             }
             finally
             {
                 if (tempFile != null && File.Exists(tempFile))
                 {
-                    try { File.Delete(tempFile); } catch { }
+                    try { File.Delete(tempFile); } catch (Exception ex) { AppLogger.Log("StartupManager.DeleteTempXml", ex); }
                 }
             }
-            return false;
         }
 
         private static bool RegisterTaskViaCli(string exePath)
@@ -262,30 +253,13 @@ namespace BSCustomClevoController.Utility
             try
             {
                 string args = string.Format("/create /f /tn \"{0}\" /sc onlogon /rl highest /tr \"\\\"{1}\\\" /minimized\"", TaskName, exePath);
-                var psi = new ProcessStartInfo("schtasks.exe", args)
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
-                    {
-                        proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(5000);
-                        return proc.ExitCode == 0;
-                    }
-                }
+                return ProcessRunner.Run(ProcessRunner.ResolveSystemTool("schtasks.exe"), args, 5000, out _) == 0;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("StartupManager.RegisterTaskViaCli", ex);
                 return false;
             }
-            return false;
         }
 
         private static bool CreateStartupTask()
@@ -327,27 +301,14 @@ namespace BSCustomClevoController.Utility
 
             try
             {
-                var psi = new ProcessStartInfo("schtasks.exe", string.Format("/delete /f /tn \"{0}\"", TaskName))
+                if (ProcessRunner.Run(ProcessRunner.ResolveSystemTool("schtasks.exe"), string.Format("/delete /f /tn \"{0}\"", TaskName), 5000, out _) == 0)
                 {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
-                    {
-                        proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(5000);
-                        if (proc.ExitCode == 0) deleted = true;
-                    }
+                    deleted = true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("StartupManager.RemoveStartupTaskCli", ex);
             }
 
             return deleted;
@@ -376,30 +337,13 @@ namespace BSCustomClevoController.Utility
 
             try
             {
-                var psi = new ProcessStartInfo("schtasks.exe", string.Format("/query /tn \"{0}\"", TaskName))
-                {
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-
-                using (var proc = Process.Start(psi))
-                {
-                    if (proc != null)
-                    {
-                        proc.StandardOutput.ReadToEnd();
-                        proc.StandardError.ReadToEnd();
-                        proc.WaitForExit(5000);
-                        return proc.ExitCode == 0;
-                    }
-                }
+                return ProcessRunner.Run(ProcessRunner.ResolveSystemTool("schtasks.exe"), string.Format("/query /tn \"{0}\"", TaskName), 5000, out _) == 0;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("StartupManager.IsTaskScheduledCli", ex);
                 return false;
             }
-            return false;
         }
     }
 }

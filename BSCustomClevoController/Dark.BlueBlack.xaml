@@ -232,7 +232,6 @@
     <SolidColorBrush x:Key="OpenSense.HotBrush" Color="{StaticResource OpenSense.HotColor}" options:Freeze="True" />
     <SolidColorBrush x:Key="OpenSense.CriticalBrush" Color="{StaticResource OpenSense.CriticalColor}" options:Freeze="True" />
 
-    <!-- OpenSense Card Style -->
     <Style x:Key="AmoledCardStyle" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="{StaticResource Amoled.CardBackground}" />
         <Setter Property="BorderBrush" Value="{StaticResource Amoled.CardBorder}" />
@@ -251,7 +250,6 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!-- Modern Button Style -->
     <Style x:Key="AmoledButtonStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="#141419" />
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextPrimary}" />
@@ -289,7 +287,6 @@
         </Setter>
     </Style>
 
-    <!-- Primary Accent Button -->
     <Style x:Key="AmoledAccentButtonStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="{StaticResource Amoled.Accent}" />
         <Setter Property="Foreground" Value="#FFFFFF" />
@@ -329,14 +326,12 @@
 
     <Style x:Key="AmoledPrimaryButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource AmoledAccentButtonStyle}" />
 
-    <!-- Github Link Button Style -->
     <Style x:Key="GithubButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource AmoledButtonStyle}">
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Cursor" Value="Hand" />
     </Style>
 
-    <!-- Color Preset Round Button -->
     <Style x:Key="ColorPresetButtonStyle" TargetType="{x:Type Button}">
         <Setter Property="Width" Value="32" />
         <Setter Property="Height" Value="32" />
@@ -359,7 +354,6 @@
         </Setter>
     </Style>
 
-    <!-- Mode Card Button Style (for Power & Performance) -->
     <Style x:Key="ModeCardButtonStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="{StaticResource Amoled.CardBackground}" />
         <Setter Property="BorderBrush" Value="{StaticResource Amoled.CardBorder}" />
@@ -388,7 +382,6 @@
         </Setter>
     </Style>
 
-    <!-- Modern Dark TextBox -->
     <Style x:Key="AmoledTextBoxStyle" TargetType="{x:Type TextBox}">
         <Setter Property="Background" Value="{StaticResource Amoled.InnerCard}" />
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextPrimary}" />
@@ -428,7 +421,6 @@
 
     <Style x:Key="ModernDarkTextBox" TargetType="{x:Type TextBox}" BasedOn="{StaticResource AmoledTextBoxStyle}" />
 
-    <!-- Modern Minimal ProgressBar Style -->
     <Style x:Key="AmoledProgressBarStyle" TargetType="{x:Type ProgressBar}">
         <Setter Property="Minimum" Value="0" />
         <Setter Property="Maximum" Value="100" />
@@ -457,7 +449,6 @@
     </Style>
     <Style TargetType="{x:Type ProgressBar}" BasedOn="{StaticResource AmoledProgressBarStyle}" />
 
-    <!-- Modern Minimal Slider Style -->
     <Style x:Key="AmoledSliderStyle" TargetType="{x:Type Slider}">
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
@@ -467,10 +458,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Slider}">
                     <Grid VerticalAlignment="Center" Height="24">
-                        <!-- Continuous inactive track line spanning full width -->
                         <Border x:Name="TrackBackground" Height="4" Background="#1E1E26" CornerRadius="2" VerticalAlignment="Center" />
 
-                        <!-- Core Track coordinating active fill and draggable thumb -->
                         <Track x:Name="PART_Track" VerticalAlignment="Center">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Command="Slider.DecreaseLarge" VerticalAlignment="Center">
@@ -497,9 +486,7 @@
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="{x:Type Thumb}">
                                             <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Width="12" Height="24" Background="Transparent">
-                                                <!-- Subtle hover halo ring -->
                                                 <Ellipse x:Name="HoverRing" Width="18" Height="18" Fill="{StaticResource Amoled.Accent}" Opacity="0" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                                <!-- Minimal solid accent thumb without inner black circle -->
                                                 <Ellipse x:Name="ThumbDot" Width="12" Height="12" Fill="{StaticResource Amoled.Accent}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                             </Grid>
                                             <ControlTemplate.Triggers>
@@ -528,7 +515,6 @@
         </Setter>
     </Style>
 
-    <!-- Modern Radio Button Style -->
     <Style x:Key="AmoledRadioButtonStyle" TargetType="{x:Type RadioButton}">
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextPrimary}" />
         <Setter Property="FontSize" Value="13" />
@@ -559,7 +545,6 @@
         </Setter>
     </Style>
 
-    <!-- Modern Toggle Switch CheckBox Style -->
     <Style x:Key="AmoledToggleSwitchStyle" TargetType="{x:Type CheckBox}">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextPrimary}" />
@@ -595,7 +580,6 @@
         </Setter>
     </Style>
 
-    <!-- Modern ListBoxItem Style -->
     <Style x:Key="AmoledListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -626,17 +610,11 @@
         </Setter>
     </Style>
 
-    <!-- ========================================== -->
-    <!-- OPENSENSE DESIGN SYSTEM STYLES & TOKENS     -->
-    <!-- ========================================== -->
-
-    <!-- Temperature Scale Brushes -->
     <SolidColorBrush x:Key="OpenSense.Temp.Cool" Color="#3DB8F5" options:Freeze="True" />
     <SolidColorBrush x:Key="OpenSense.Temp.Warm" Color="#3DD68C" options:Freeze="True" />
     <SolidColorBrush x:Key="OpenSense.Temp.Hot" Color="#FFB224" options:Freeze="True" />
     <SolidColorBrush x:Key="OpenSense.Temp.Critical" Color="#FF4D4D" options:Freeze="True" />
 
-    <!-- OpenSense Typography Styles -->
     <Style x:Key="OpenSensePageTitleStyle" TargetType="{x:Type TextBlock}">
         <Setter Property="FontSize" Value="28" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -669,7 +647,6 @@
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextPrimary}" />
     </Style>
 
-    <!-- OpenSense Card Style -->
     <Style x:Key="OpenSenseCardStyle" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="{StaticResource Amoled.CardBackground}" />
         <Setter Property="BorderBrush" Value="{StaticResource Amoled.CardBorder}" />
@@ -679,7 +656,6 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!-- OpenSense SettingsCard Style -->
     <Style x:Key="OpenSenseSettingsCardStyle" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="{StaticResource Amoled.CardBackground}" />
         <Setter Property="BorderBrush" Value="{StaticResource Amoled.CardBorder}" />
@@ -690,7 +666,6 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!-- OpenSense Segmented Pill Button Styles -->
     <Style x:Key="OpenSenseSegmentedPillButtonStyle" TargetType="{x:Type Button}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource Amoled.TextSecondary}" />
@@ -746,7 +721,6 @@
         </Setter>
     </Style>
 
-    <!-- Global ToolTip Style (Dark theme with #101014 background) -->
     <Style TargetType="{x:Type ToolTip}">
         <Setter Property="Background" Value="#FF101014" />
         <Setter Property="Foreground" Value="#FFFFFF" />

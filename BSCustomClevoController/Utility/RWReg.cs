@@ -167,16 +167,27 @@ namespace BSCustomClevoController.Utility
 			return Convert.ToInt32(Registry.GetValue("HKEY_CURRENT_USER\\Software\\ControlCenter2.0\\UI\\", "Support_Page_LEDDevice", "0"));
 		}
 
+		private const string AppLanguageRegistryKey = "HKEY_CURRENT_USER\\Software\\BSCustomClevoController";
+		private const string AppLanguageRegistryValue = "Language";
+		private const string LegacyLanguageRegistryKey = "HKEY_CURRENT_USER\\Software\\ControlCenter3.0\\Fan\\";
+		private const string LegacyLanguageRegistryValue = "language";
+
 		// Token: 0x060000DA RID: 218 RVA: 0x00009A98 File Offset: 0x00007C98
 		public string Check_language()
 		{
-			string text = Convert.ToString(Registry.GetValue("HKEY_CURRENT_USER\\Software\\ControlCenter3.0\\Fan\\", "language", ""));
-			bool flag = text == "";
-			if (flag)
+			string text = Convert.ToString(Registry.GetValue(AppLanguageRegistryKey, AppLanguageRegistryValue, ""));
+			if (string.IsNullOrWhiteSpace(text))
 			{
-				text = CultureInfo.CurrentCulture.Name.ToLower();
-				this.WriteLanguage(text);
+				text = Convert.ToString(Registry.GetValue(LegacyLanguageRegistryKey, LegacyLanguageRegistryValue, ""));
 			}
+			if (string.IsNullOrWhiteSpace(text))
+			{
+				string uiCulture = CultureInfo.CurrentUICulture.Name;
+				text = string.IsNullOrWhiteSpace(uiCulture)
+					? CultureInfo.CurrentCulture.Name.ToLowerInvariant()
+					: uiCulture.ToLowerInvariant();
+			}
+			text = text.Trim().ToLowerInvariant();
 			bool flag2 = text.Contains("en");
 			if (flag2)
 			{
@@ -313,8 +324,21 @@ namespace BSCustomClevoController.Utility
 																		}
 																		else
 																		{
-																			text = "en-us";
-																			Global.Flexikey_LED_Language = 0;
+																			bool flag19 = text.Contains("id");
+																			if (flag19)
+																			{
+																				text = "id-id";
+																				Global.Flexikey_LED_Language = 0;
+																			}
+																			else
+																			{
+																				if (!LocalizationManager.TryResolveLanguagePackPath(text, out string customPackPath) ||
+																					!System.IO.File.Exists(customPackPath))
+																				{
+																					text = "en-us";
+																				}
+																				Global.Flexikey_LED_Language = 0;
+																			}
 																		}
 																	}
 																}
@@ -331,6 +355,7 @@ namespace BSCustomClevoController.Utility
 					}
 				}
 			}
+			this.WriteLanguage(text);
 			return text;
 		}
 
@@ -341,9 +366,13 @@ namespace BSCustomClevoController.Utility
 		}
 
 		// Token: 0x060000DC RID: 220 RVA: 0x00009DEB File Offset: 0x00007FEB
-		private void WriteLanguage(string strLang)
+		public void WriteLanguage(string strLang)
 		{
-			Registry.SetValue("HKEY_CURRENT_USER\\Software\\ControlCenter3.0\\Fan\\", "language", strLang);
+			string normalized = LocalizationManager.IsValidLanguageCode(strLang)
+				? strLang.Trim().ToLowerInvariant()
+				: "en-us";
+			Registry.SetValue(AppLanguageRegistryKey, AppLanguageRegistryValue, normalized, RegistryValueKind.String);
+			Registry.SetValue(LegacyLanguageRegistryKey, LegacyLanguageRegistryValue, normalized, RegistryValueKind.String);
 		}
 
 		// Token: 0x17000008 RID: 8

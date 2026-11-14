@@ -16,14 +16,12 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="Settings &amp; Maintenance" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-            <TextBlock Text="Startup preferences, on-screen display, driver status, and hardware reset" 
+            <TextBlock Text="{DynamicResource Loc.SettingsTitle}" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+            <TextBlock Text="{DynamicResource Loc.SettingsSubtitle}" 
                        FontSize="13" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,3,0,0" />
         </StackPanel>
 
-        <!-- 2-Column Content -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -31,145 +29,128 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left Column: Application Preferences -->
-            <StackPanel Grid.Column="0">
-                <Border Style="{StaticResource AmoledCardStyle}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <Border Style="{StaticResource AmoledCardStyle}" Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Text="Startup Behavior" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,16" />
+                            <TextBlock Grid.Row="0" Text="{DynamicResource Loc.SettingsLanguageHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,14" />
 
-                        <!-- Start with Windows (Minimized to Tray) -->
-                        <Border Grid.Row="1" Style="{StaticResource SubCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                            <Border Grid.Row="1" Style="{StaticResource SubCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="210" />
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Run at Windows Startup" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Starts minimized in the background on startup so fan and power profiles apply automatically."
-                                               FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
-                                </StackPanel>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.SettingsAppLanguage}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                        <TextBlock Text="{DynamicResource Loc.SettingsAppLanguageDesc}"
+                                                   FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
+                                    </StackPanel>
 
-                                <CheckBox x:Name="StartupCheckBox" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}"
-                                          VerticalAlignment="Center" Margin="14,0,0,0" Click="StartupCheckBox_Click" />
-                            </Grid>
-                        </Border>
+                                    <ComboBox x:Name="LanguageComboBox" Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0"
+                                              DisplayMemberPath="DisplayName" SelectedValuePath="Code"
+                                              Background="{StaticResource Amoled.InnerCard}" Foreground="{StaticResource Amoled.TextPrimary}"
+                                              BorderBrush="{StaticResource Amoled.InnerCardBorder}"
+                                              SelectionChanged="LanguageComboBox_SelectionChanged" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
 
-                        <!-- System Tray Behavior Hint -->
-                        <Border Grid.Row="2" Style="{StaticResource SubCardStyle}" Margin="0,10,0,0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Path Data="M 12 2 C 6.48 2 2 6.48 2 12 s 4.48 10 10 10 10 -4.48 10 -10 S 17.52 2 12 2 z m 1 15 h -2 v -6 h 2 v 6 z m 0 -8 h -2 V 7 h 2 v 2 z"
-                                      Fill="{StaticResource Amoled.Accent}" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                <TextBlock Grid.Column="1" Text="Closing or minimizing the window keeps the controller active in the system tray. Double-click the tray icon to reopen anytime."
-                                           FontSize="11" Foreground="{StaticResource Amoled.TextSecondary}" TextWrapping="Wrap" VerticalAlignment="Center" LineHeight="16" />
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Border>
+                    <Border Style="{StaticResource AmoledCardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-                <!-- On-Screen Display Card -->
-                <Border Style="{StaticResource AmoledCardStyle}" Margin="0,16,0,0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="{DynamicResource Loc.SettingsOsdHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,16" />
 
-                        <TextBlock Grid.Row="0" Text="On-Screen Display (OSD)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,16" />
+                            <Border Grid.Row="1" Style="{StaticResource SubCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                        <Border Grid.Row="1" Style="{StaticResource SubCardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.SettingsShowOsd}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                        <TextBlock Text="{DynamicResource Loc.SettingsShowOsdDesc}"
+                                                   FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
+                                    </StackPanel>
 
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Show On-Screen Display (OSD)" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Shows visual notifications on screen when changing volume, brightness, fan speed, or power modes."
-                                               FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
-                                </StackPanel>
+                                    <CheckBox x:Name="OsdCheckBox" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}"
+                                              VerticalAlignment="Center" Margin="14,0,0,0" Click="OsdCheckBox_Click" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
 
-                                <CheckBox x:Name="OsdCheckBox" Grid.Column="1" Style="{StaticResource AmoledToggleSwitchStyle}"
-                                          VerticalAlignment="Center" Margin="14,0,0,0" Click="OsdCheckBox_Click" />
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Border>
+                    <Border Style="{StaticResource AmoledCardStyle}" Margin="0,16,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
 
-                <!-- Maintenance & Power Card (Moved under OSD) -->
-                <Border Style="{StaticResource AmoledCardStyle}" Margin="0,16,0,0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="{DynamicResource Loc.SettingsMaintenanceHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,16" />
 
-                        <TextBlock Grid.Row="0" Text="Maintenance &amp; Hardware Driver" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" Margin="0,0,0,16" />
+                            <Border Grid.Row="1" Style="{StaticResource SubCardStyle}" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                        <!-- ACPI Kernel Driver Status -->
-                        <Border Grid.Row="1" Style="{StaticResource SubCardStyle}" Margin="0,0,0,10">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.SettingsDriverTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                        <TextBlock x:Name="DriverStatusDesc" Text="{DynamicResource Loc.SettingsDriverDesc}"
+                                                   FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
+                                    </StackPanel>
 
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="ACPI Kernel Driver (AcpiBridge)" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock x:Name="DriverStatusDesc" Text="Hardware driver interface for fan speeds, power modes, battery limits, and hotkeys."
-                                               FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
-                                </StackPanel>
+                                    <Border x:Name="DriverStatusBadge" Grid.Column="1" CornerRadius="10" Padding="10,3" BorderThickness="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                        <TextBlock x:Name="DriverStatusText" Text="{DynamicResource Loc.SettingsStatusChecking}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                    </Border>
 
-                                <Border x:Name="DriverStatusBadge" Grid.Column="1" CornerRadius="10" Padding="10,3" BorderThickness="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                    <TextBlock x:Name="DriverStatusText" Text="Checking..." FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                </Border>
+                                    <Button x:Name="ReinstallDriverBtn" Grid.Column="2" Content="{DynamicResource Loc.SettingsReinstall}" Click="ReinstallDriver_Click"
+                                            Style="{StaticResource AmoledButtonStyle}" Padding="12,6" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    <Button x:Name="UninstallDriverBtn" Grid.Column="3" Content="{DynamicResource Loc.SettingsUninstall}" Click="UninstallDriver_Click"
+                                            Style="{StaticResource AmoledButtonStyle}" Padding="12,6" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
 
-                                <Button x:Name="ReinstallDriverBtn" Grid.Column="2" Content="Reinstall" Click="ReinstallDriver_Click"
-                                        Style="{StaticResource AmoledButtonStyle}" Padding="12,6" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                <Button x:Name="UninstallDriverBtn" Grid.Column="3" Content="Uninstall" Click="UninstallDriver_Click"
-                                        Style="{StaticResource AmoledButtonStyle}" Padding="12,6" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
+                            <Border Grid.Row="2" Style="{StaticResource SubCardStyle}" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                        <!-- Reset to Factory Settings -->
-                        <Border Grid.Row="2" Style="{StaticResource SubCardStyle}" Margin="0,0,0,10">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource Loc.SettingsResetTitle}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                        <TextBlock Text="{DynamicResource Loc.SettingsResetDesc}"
+                                                   FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
+                                    </StackPanel>
 
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Reset to Factory Defaults" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextPrimary}" />
-                                    <TextBlock Text="Restores power modes, fan curves, and keyboard lighting back to factory defaults."
-                                               FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" LineHeight="15" />
-                                </StackPanel>
+                                    <Button x:Name="ResetFactoryBtn" Grid.Column="1" Content="{DynamicResource Loc.SettingsResetBtn}" Click="ResetFactory_Click"
+                                            Style="{StaticResource AmoledButtonStyle}" Padding="16,6" Margin="14,0,0,0" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
 
-                                <Button x:Name="ResetFactoryBtn" Grid.Column="1" Content="Reset" Click="ResetFactory_Click"
-                                        Style="{StaticResource AmoledButtonStyle}" Padding="16,6" Margin="14,0,0,0" VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Border>
-            </StackPanel>
-
-            <!-- Right Column: Hardware EC Capabilities Diagnostic -->
             <Border Grid.Column="2" Style="{StaticResource AmoledCardStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -179,11 +160,11 @@
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0" Margin="0,0,0,14">
-                        <TextBlock Text="Hardware Features &amp; Capabilities" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource Loc.SettingsCapabilitiesHeader}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Amoled.TextSecondary}" VerticalAlignment="Center" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="CopyCapabilitiesBtn" Content="Copy All" Click="CopyCapabilities_Click"
+                            <Button x:Name="CopyCapabilitiesBtn" Content="{DynamicResource Loc.SettingsCopyAll}" Click="CopyCapabilities_Click"
                                     Style="{StaticResource AmoledButtonStyle}" Padding="10,4" FontSize="11" Margin="0,0,6,0" />
-                            <Button Content="Refresh" Click="RefreshCapabilities_Click"
+                            <Button Content="{DynamicResource Loc.SettingsRefresh}" Click="RefreshCapabilities_Click"
                                     Style="{StaticResource AmoledButtonStyle}" Padding="10,4" FontSize="11" />
                         </StackPanel>
                     </Grid>
@@ -248,13 +229,13 @@
                                     <DataTrigger Binding="{Binding IsSupported}" Value="True">
                                         <Setter TargetName="BadgeBorder" Property="Background" Value="#1A2D42" />
                                         <Setter TargetName="BadgeBorder" Property="BorderBrush" Value="#2563EB" />
-                                        <Setter TargetName="BadgeText" Property="Text" Value="Supported" />
+                                        <Setter TargetName="BadgeText" Property="Text" Value="{DynamicResource Loc.SettingsSupported}" />
                                         <Setter TargetName="BadgeText" Property="Foreground" Value="#79CFFF" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding IsSupported}" Value="False">
                                         <Setter TargetName="BadgeBorder" Property="Background" Value="#14171E" />
                                         <Setter TargetName="BadgeBorder" Property="BorderBrush" Value="#262B36" />
-                                        <Setter TargetName="BadgeText" Property="Text" Value="Not Supported" />
+                                        <Setter TargetName="BadgeText" Property="Text" Value="{DynamicResource Loc.SettingsNotSupported}" />
                                         <Setter TargetName="BadgeText" Property="Foreground" Value="#7D8590" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
@@ -262,12 +243,12 @@
                         </ListBox.ItemTemplate>
                         <ListBox.ContextMenu>
                             <ContextMenu Background="{StaticResource Amoled.InnerCard}" BorderBrush="{StaticResource Amoled.CardBorder}" BorderThickness="1">
-                                <MenuItem Header="Copy All" Click="CopyAll_Click" Foreground="{StaticResource Amoled.TextPrimary}" />
+                                <MenuItem Header="{DynamicResource Loc.SettingsCopyAll}" Click="CopyAll_Click" Foreground="{StaticResource Amoled.TextPrimary}" />
                             </ContextMenu>
                         </ListBox.ContextMenu>
                     </ListBox>
 
-                    <TextBlock Grid.Row="2" Text="Displays hardware features detected directly from your laptop motherboard." 
+                    <TextBlock Grid.Row="2" Text="{DynamicResource Loc.SettingsCapabilitiesFooter}" 
                                FontSize="11" Foreground="{StaticResource Amoled.TextMuted}" TextWrapping="Wrap" />
                 </Grid>
             </Border>

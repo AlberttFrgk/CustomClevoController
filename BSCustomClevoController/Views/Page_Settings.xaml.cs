@@ -6,8 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using static BSCustomClevoController.Utility.Structs;
 using BSCustomClevoController.Controls;
 
 
@@ -15,13 +13,60 @@ namespace BSCustomClevoController.Views
 {
     public partial class Page_Settings : Page
     {
+        private bool _isLoadingLanguage;
+
         public Page_Settings()
         {
             InitializeComponent();
-            LoadStartupState();
+            LoadLanguageState();
             LoadOsdState();
             LoadDriverState();
             LoadCapabilities();
+
+            Loaded += (s, e) => LoadLanguageState();
+
+            LocalizationManager.LanguageChanged += () =>
+            {
+                LoadDriverState();
+                LoadCapabilities();
+            };
+        }
+
+        private void LoadLanguageState()
+        {
+            _isLoadingLanguage = true;
+            try
+            {
+                var languages = LocalizationManager.SupportedLanguages;
+                LanguageComboBox.ItemsSource = languages;
+                LanguageComboBox.SelectedValue = LocalizationManager.CurrentLanguage;
+                if (LanguageComboBox.SelectedItem == null && languages != null)
+                {
+                    foreach (var opt in languages)
+                    {
+                        if (string.Equals(opt.Code, LocalizationManager.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
+                        {
+                            LanguageComboBox.SelectedItem = opt;
+                            break;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _isLoadingLanguage = false;
+            }
+        }
+
+        private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoadingLanguage) return;
+            string code = (LanguageComboBox.SelectedItem as LanguageOption)?.Code ?? (LanguageComboBox.SelectedValue as string);
+            if (!string.IsNullOrWhiteSpace(code) &&
+                !string.Equals(code, LocalizationManager.CurrentLanguage, StringComparison.OrdinalIgnoreCase))
+            {
+                LocalizationManager.SetLanguage(code);
+            }
         }
 
         private void LoadDriverState()
@@ -33,34 +78,34 @@ namespace BSCustomClevoController.Views
                 {
                     DriverStatusBadge.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x2D, 0x42));
                     DriverStatusBadge.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x25, 0x63, 0xEB));
-                    DriverStatusText.Text = "Installed";
+                    DriverStatusText.Text = LocalizationManager.T("SettingsStatusInstalled");
                     DriverStatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x79, 0xCF, 0xFF));
-                    ReinstallDriverBtn.Content = "Reinstall";
+                    ReinstallDriverBtn.Content = LocalizationManager.T("SettingsReinstall");
                     UninstallDriverBtn.IsEnabled = true;
                 }
                 else
                 {
                     DriverStatusBadge.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3B, 0x1B, 0x1B));
                     DriverStatusBadge.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xDC, 0x26, 0x26));
-                    DriverStatusText.Text = "Not Installed";
+                    DriverStatusText.Text = LocalizationManager.T("SettingsStatusNotInstalled");
                     DriverStatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFA, 0x79, 0x70));
-                    ReinstallDriverBtn.Content = "Install Driver";
+                    ReinstallDriverBtn.Content = LocalizationManager.T("SettingsInstallDriver");
                     UninstallDriverBtn.IsEnabled = false;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_Settings.LoadDriverState", ex);
             }
         }
 
         private async void ReinstallDriver_Click(object sender, RoutedEventArgs e)
         {
             bool isWorking = AcpiDriverInstaller.IsDriverWorking();
-            string actionText = isWorking ? "reinstall" : "install";
 
             var confirm = MessageBox.Show(
-                $"Are you sure you want to {actionText} the AcpiBridge driver? A system restart will be required to complete setup.",
-                isWorking ? "Reinstall Driver" : "Install Driver",
+                isWorking ? LocalizationManager.T("DlgDriverReinstallConfirm") : LocalizationManager.T("DlgDriverInstallConfirm"),
+                isWorking ? LocalizationManager.T("SettingsReinstall") : LocalizationManager.T("SettingsInstallDriver"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -68,31 +113,31 @@ namespace BSCustomClevoController.Views
 
             ReinstallDriverBtn.IsEnabled = false;
             UninstallDriverBtn.IsEnabled = false;
-            DriverStatusText.Text = "Installing...";
-            DriverStatusDesc.Text = "Adding AcpiBridge driver package and scanning PnP devices...";
+            DriverStatusText.Text = LocalizationManager.T("SettingsStatusInstalling");
+            DriverStatusDesc.Text = LocalizationManager.T("SettingsDriverInstalling");
 
             bool rebootRequired = false;
             bool success = await Task.Run(() => AcpiDriverInstaller.InstallDriver(out rebootRequired, force: true));
 
             ReinstallDriverBtn.IsEnabled = true;
-            DriverStatusDesc.Text = "Hardware driver interface for fan speeds, power modes, battery limits, and hotkeys.";
+            DriverStatusDesc.Text = LocalizationManager.T("SettingsDriverDesc");
             LoadDriverState();
 
             if (success)
             {
-                StartupCheckBox.IsChecked = StartupManager.IsRunAtStartupEnabled();
+                StartupManager.SetRunAtStartup(true);
                 Capabilities.InvalidateCache();
                 LoadCapabilities();
 
                 var res = MessageBox.Show(
-                    "AcpiBridge driver installed successfully. A restart is required to complete setup.\n\nWould you like to restart your PC now?",
-                    "Restart Required",
+                    LocalizationManager.T("DlgDriverInstalledMsg"),
+                    LocalizationManager.T("DlgDriverInstalledTitle"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
 
                 if (res == MessageBoxResult.Yes)
                 {
-                    DriverStatusText.Text = "Restarting...";
+                    DriverStatusText.Text = LocalizationManager.T("SettingsStatusRestarting");
                     AcpiDriverInstaller.RestartComputer();
                     await Task.Delay(1000);
                     Application.Current.Shutdown();
@@ -101,8 +146,8 @@ namespace BSCustomClevoController.Views
             else
             {
                 MessageBox.Show(
-                    "Failed to install or verify AcpiBridge driver. Please ensure driver files exist in the AcpiBridge folder.",
-                    "Driver Installation Error",
+                    LocalizationManager.T("DlgDriverErrorMsg"),
+                    LocalizationManager.T("DlgDriverErrorTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
@@ -111,8 +156,8 @@ namespace BSCustomClevoController.Views
         private async void UninstallDriver_Click(object sender, RoutedEventArgs e)
         {
             var res = MessageBox.Show(
-                "Are you sure you want to uninstall the AcpiBridge driver? Hardware controls will stop functioning, and a system restart will be required.",
-                "Uninstall Driver",
+                LocalizationManager.T("DlgDriverUninstallConfirm"),
+                LocalizationManager.T("SettingsUninstall"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -120,18 +165,17 @@ namespace BSCustomClevoController.Views
 
             ReinstallDriverBtn.IsEnabled = false;
             UninstallDriverBtn.IsEnabled = false;
-            DriverStatusText.Text = "Removing...";
-            DriverStatusDesc.Text = "Removing AcpiBridge service and deleting driver package...";
+            DriverStatusText.Text = LocalizationManager.T("SettingsStatusRemoving");
+            DriverStatusDesc.Text = LocalizationManager.T("SettingsDriverRemoving");
 
             bool success = await Task.Run(() => AcpiDriverInstaller.UninstallDriver());
 
             ReinstallDriverBtn.IsEnabled = true;
-            DriverStatusDesc.Text = "Hardware driver interface for fan speeds, power modes, battery limits, and hotkeys.";
+            DriverStatusDesc.Text = LocalizationManager.T("SettingsDriverDesc");
 
             if (success)
             {
                 StartupManager.SetRunAtStartup(false);
-                StartupCheckBox.IsChecked = false;
                 Capabilities.InvalidateCache();
                 try
                 {
@@ -142,20 +186,20 @@ namespace BSCustomClevoController.Views
                 }
                 DriverStatusBadge.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3B, 0x2E, 0x1B));
                 DriverStatusBadge.BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xD9, 0x77, 0x06));
-                DriverStatusText.Text = "Pending Restart";
+                DriverStatusText.Text = LocalizationManager.T("SettingsStatusPendingRestart");
                 DriverStatusText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFB, 0xBF, 0x24));
-                ReinstallDriverBtn.Content = "Install Driver";
+                ReinstallDriverBtn.Content = LocalizationManager.T("SettingsInstallDriver");
                 UninstallDriverBtn.IsEnabled = false;
 
                 var restartRes = MessageBox.Show(
-                    "AcpiBridge driver uninstalled successfully. A restart is required to complete driver removal.\n\nWould you like to restart your PC now?",
-                    "Restart Required",
+                    LocalizationManager.T("DlgDriverUninstallDone"),
+                    LocalizationManager.T("DlgDriverInstalledTitle"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
 
                 if (restartRes == MessageBoxResult.Yes)
                 {
-                    DriverStatusText.Text = "Restarting...";
+                    DriverStatusText.Text = LocalizationManager.T("SettingsStatusRestarting");
                     AcpiDriverInstaller.RestartComputer();
                     await Task.Delay(1000);
                     Application.Current.Shutdown();
@@ -165,23 +209,10 @@ namespace BSCustomClevoController.Views
             {
                 LoadDriverState();
                 MessageBox.Show(
-                    "Failed to uninstall AcpiBridge driver. Administrator privileges may be required.",
-                    "Driver Uninstallation Error",
+                    LocalizationManager.T("DlgDriverUninstallErr"),
+                    LocalizationManager.T("SettingsUninstall"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
-            }
-        }
-
-        private void LoadStartupState()
-        {
-            try
-            {
-                StartupCheckBox.IsChecked = StartupManager.IsRunAtStartupEnabled();
-            }
-            catch
-            {
-                StartupManager.SetRunAtStartup(false);
-                StartupCheckBox.IsChecked = false;
             }
         }
 
@@ -191,8 +222,9 @@ namespace BSCustomClevoController.Views
             {
                 OsdCheckBox.IsChecked = OsdOverlay.IsEnabled;
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Log("Page_Settings.LoadOsdState", ex);
                 OsdCheckBox.IsChecked = true;
             }
         }
@@ -204,38 +236,11 @@ namespace BSCustomClevoController.Views
             SystemPreferences.UpdateHookState();
         }
 
-        private void StartupCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            bool wantEnable = StartupCheckBox.IsChecked == true;
-            try
-            {
-                bool success = StartupManager.SetRunAtStartup(wantEnable);
-                StartupCheckBox.IsChecked = StartupManager.IsRunAtStartupEnabled();
-                if (!success)
-                {
-                    MessageBox.Show(
-                        "Unable to configure Windows startup. Please make sure the app has administrator privileges.",
-                        "Startup Configuration",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                }
-            }
-            catch (Exception ex)
-            {
-                StartupCheckBox.IsChecked = StartupManager.IsRunAtStartupEnabled();
-                MessageBox.Show(
-                    "Error updating startup settings: " + ex.Message,
-                    "Startup Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-
         private void ResetFactory_Click(object sender, RoutedEventArgs e)
         {
             var result = MessageBox.Show(
-                "Are you sure you want to restore all fan, power mode, and keyboard lighting settings to factory defaults?",
-                "Confirm Reset",
+                LocalizationManager.T("DlgResetConfirmMsg"),
+                LocalizationManager.T("DlgResetConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -251,30 +256,18 @@ namespace BSCustomClevoController.Views
                 (Application.Current.MainWindow as MainWindow)?.ReloadCachedPages();
 
                 MessageBox.Show(
-                    "Factory default settings have been successfully restored.",
-                    "Settings Reset",
+                    LocalizationManager.T("DlgResetDone"),
+                    LocalizationManager.T("DlgResetConfirmTitle"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Error resetting to factory defaults: " + ex.Message,
-                    "Reset Error",
+                    LocalizationManager.Format("SettingsResetErrorFmt", ex.Message),
+                    LocalizationManager.T("SettingsResetErrorTitle", "Reset Error"),
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
-            }
-        }
-
-        private void Exit_Click(object sender, RoutedEventArgs e)
-        {
-            if (Application.Current.MainWindow is MainWindow mw)
-            {
-                mw.ExitApplication();
-            }
-            else
-            {
-                Application.Current.Shutdown();
             }
         }
 
@@ -290,9 +283,8 @@ namespace BSCustomClevoController.Views
                 {
                     new CapabilityItem
                     {
-                        Name = "Diagnostic query error: " + ex.Message,
-                        IsSupported = false,
-                        RawKey = "Error"
+                        Name = LocalizationManager.Format("SettingsDiagQueryErrorFmt", ex.Message),
+                        IsSupported = false
                     }
                 };
             }
@@ -308,10 +300,9 @@ namespace BSCustomClevoController.Views
             bool copied = CopyAllToClipboard();
             if (copied && CopyCapabilitiesBtn != null)
             {
-                string original = CopyCapabilitiesBtn.Content.ToString();
-                CopyCapabilitiesBtn.Content = "Copied!";
+                CopyCapabilitiesBtn.Content = LocalizationManager.T("SettingsCopied");
                 await Task.Delay(1500);
-                CopyCapabilitiesBtn.Content = original;
+                CopyCapabilitiesBtn.Content = LocalizationManager.T("SettingsCopyAll");
             }
         }
 
@@ -324,7 +315,6 @@ namespace BSCustomClevoController.Views
         {
             if (string.IsNullOrEmpty(text)) return false;
 
-            // 1. Try WinForms Clipboard with built-in retry parameter (10 retries, 50ms interval)
             try
             {
                 System.Windows.Forms.Clipboard.SetDataObject(text, true, 10, 50);
@@ -334,7 +324,6 @@ namespace BSCustomClevoController.Views
             {
             }
 
-            // 2. Try WPF Clipboard with retry loop (10 retries, 40ms interval)
             for (int i = 0; i < 10; i++)
             {
                 try
@@ -360,8 +349,8 @@ namespace BSCustomClevoController.Views
             if (FeaturesListBox.ItemsSource == null) return false;
 
             var sb = new StringBuilder();
-            sb.AppendLine("=== Hardware EC Capabilities Diagnostic ===");
-            sb.AppendLine("Timestamp: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            sb.AppendLine(LocalizationManager.T("SettingsDiagHeader", "=== Hardware EC Capabilities Diagnostic ==="));
+            sb.AppendLine(LocalizationManager.Format("SettingsDiagTimestampFmt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", LocalizationManager.CurrentCulture)));
             sb.AppendLine();
 
             foreach (var item in FeaturesListBox.ItemsSource)
@@ -375,7 +364,11 @@ namespace BSCustomClevoController.Views
             bool success = SafeSetClipboardText(sb.ToString());
             if (!success)
             {
-                MessageBox.Show("Could not copy to clipboard. Another application is currently holding the clipboard lock.", "Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    LocalizationManager.T("SettingsCopyError"),
+                    LocalizationManager.T("CommonNotice"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
             return success;
         }

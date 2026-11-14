@@ -168,7 +168,15 @@ namespace BSCustomClevoController.Utility
 																			}
 																			else
 																			{
-																				result = "en-us";
+																				bool flag19 = appdata[0] == 19;
+																				if (flag19)
+																				{
+																					result = "id-ID";
+																				}
+																				else
+																				{
+																						result = "en-us";
+																				}
 																			}
 																		}
 																	}

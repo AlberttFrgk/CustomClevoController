@@ -1,22 +1,28 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Text;
-using BSCustomClevoController.Controls;
 
 namespace BSCustomClevoController.Utility
 {
     public class CapabilityItem
     {
-        public string Name { get; set; }
+        private string _name;
+
+        public string Name
+        {
+            get => !string.IsNullOrEmpty(RawKey) ? LocalizationManager.T("Cap_" + RawKey, _name) : _name;
+            set => _name = value;
+        }
+
         public bool IsSupported { get; set; }
         public string RawKey { get; set; }
 
-        public string StatusText => IsSupported ? "Supported" : "Not Supported";
+        public string StatusText => IsSupported
+            ? LocalizationManager.T("SettingsSupported")
+            : LocalizationManager.T("SettingsNotSupported");
 
         public override string ToString()
         {
-            return $"{Name}: {(IsSupported ? "Supported" : "Not Supported")}";
+            return $"{Name}: {StatusText}";
         }
     }
 
@@ -74,88 +80,59 @@ namespace BSCustomClevoController.Utility
         public static bool SetKeyboardAnimationSpeed(int speed)
         {
             // Clevo DCHU CMD 527 sets keyboard animation speed: 1 (Slow), 2 (Normal), 3 (Fast)
-            try
-            {
-                int val = Math.Max(1, Math.Min(3, speed));
-                return SetWMI(527, (uint)val);
-            }
-            catch
-            {
-                return false;
-            }
+            int val = Math.Max(1, Math.Min(3, speed));
+            return SetWMI(527, (uint)val);
         }
 
-        public static bool SetEnergyStar15C(bool enable)
+        private static bool SetWmiFlag(int command, bool enable, uint enableMask)
+        {
+            return SetWMI(command, enable ? enableMask : 0u);
+        }
+
+        public static bool SetEnergyStar15C(bool enable) => SetWmiFlag(82, enable, 2097152u);
+
+        public static bool SetDynamicTuning(bool enable) => SetWmiFlag(96, enable, 512u);
+
+        public static bool SetWakeOnLan(bool enable) => SetWmiFlag(60, enable, 32u);
+
+        public static bool SetEthernetLed(bool enable) => SetWmiFlag(122, enable, 2097152u);
+
+        public static bool ResetUsbHub() => SetWMI(122, 256u);
+
+        // CMD 122 bit 20: 1048576 (0 = MSHybrid, 1 = Discrete Only)
+        public static bool SetGpuMuxMode(bool discreteOnly) => SetWmiFlag(122, discreteOnly, 1048576u);
+
+        public static bool IsMaxQSupported()
         {
             try
             {
-                return SetWMI(82, enable ? 2097152u : 0u);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+                if (Global.support_bit != null && Global.support_bit.MaxQ)
+                    return true;
 
-        public static bool SetDynamicTuning(bool enable)
-        {
-            try
-            {
-                return SetWMI(96, enable ? 512u : 0u);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+                if (Global.RW_REG != null && Global.RW_REG.SupportMaxqFan)
+                    return true;
 
-        public static bool SetWakeOnLan(bool enable)
-        {
-            try
-            {
-                return SetWMI(60, enable ? 32u : 0u);
-            }
-            catch
-            {
-                return false;
-            }
-        }
+                byte[] appData = Global.insyde.GetAPPData(4, 0, 256);
+                if (appData != null && appData.Length > 5 && (appData[4] == 5 || appData[5] == 5))
+                {
+                    if (Global.support_bit != null)
+                        Global.support_bit.MaxQ = true;
+                    return true;
+                }
 
-        public static bool SetEthernetLed(bool enable)
-        {
-            try
-            {
-                return SetWMI(122, enable ? 2097152u : 0u);
+                byte[] wmi13 = Global.insyde.GetWMIPackage(13);
+                if (wmi13 != null && wmi13.Length > 14 && wmi13[14] == 5)
+                {
+                    if (Global.support_bit != null)
+                        Global.support_bit.MaxQ = true;
+                    return true;
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                AppLogger.Log("Capabilities.IsMaxQSupported", ex);
             }
-        }
-
-        public static bool ResetUsbHub()
-        {
-            try
-            {
-                return SetWMI(122, 256u);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public static bool SetGpuMuxMode(bool discreteOnly)
-        {
-            try
-            {
-                // CMD 122 bit 20: 1048576 (0 = MSHybrid, 1 = Discrete Only)
-                return SetWMI(122, discreteOnly ? 1048576u : 0u);
-            }
-            catch
-            {
-                return false;
-            }
+            return false;
         }
 
         public static List<CapabilityItem> Check()
@@ -186,9 +163,8 @@ namespace BSCustomClevoController.Utility
                 {
                     new CapabilityItem
                     {
-                        Name = "Diagnostic Query: Unavailable (" + ex.Message + ")",
-                        IsSupported = false,
-                        RawKey = "Error"
+                        Name = LocalizationManager.Format("CapQueryUnavailableFmt", ex.Message),
+                        IsSupported = false
                     }
                 };
             }
@@ -198,7 +174,6 @@ namespace BSCustomClevoController.Utility
         {
             var list = new List<CapabilityItem>();
 
-            // Performance and Power
             list.Add(new CapabilityItem { Name = "Power Profiles", IsSupported = features.SupportPowerMode, RawKey = "SupportPowerMode" });
             list.Add(new CapabilityItem { Name = "CPU Overclocking", IsSupported = features.SupportCPUOC, RawKey = "SupportCPUOC" });
             list.Add(new CapabilityItem { Name = "GPU Overclocking", IsSupported = features.SupportGPUOC || features.SupportGPUOC_WMI == 1, RawKey = "SupportGPUOC" });
@@ -210,7 +185,6 @@ namespace BSCustomClevoController.Utility
             list.Add(new CapabilityItem { Name = "Hardware P-States", IsSupported = features.SupportHW_P_state, RawKey = "SupportHW_P_state" });
             list.Add(new CapabilityItem { Name = "Dynamic Tuning", IsSupported = ((cmd96 >> 12) & 1) == 1 || features.SupportDisablePCIE_ASPM, RawKey = "DynamicTuning" });
 
-            // Keyboard and Lighting
             bool perKey = (cmd16 & 8) == 8;
             bool rgb = (cmd16 & 16) == 16;
             list.Add(new CapabilityItem { Name = "RGB Keyboard", IsSupported = rgb, RawKey = "RGBKeyboard" });
@@ -222,15 +196,13 @@ namespace BSCustomClevoController.Utility
             list.Add(new CapabilityItem { Name = "Logo Lighting", IsSupported = features.SupportLogoColor, RawKey = "SupportLogoColor" });
             list.Add(new CapabilityItem { Name = "Touchpad Lighting", IsSupported = features.SupportTpColor, RawKey = "SupportTpColor" });
 
-            // Cooling and Fans
             list.Add(new CapabilityItem { Name = "Fan Control", IsSupported = features.FanSpeedSupport || features.SupportFanSpeedSetting, RawKey = "FanSpeedSupport" });
             list.Add(new CapabilityItem { Name = "Custom Fan Curves", IsSupported = features.CustomFanSupport, RawKey = "CustomFanSupport" });
             list.Add(new CapabilityItem { Name = "Fan Offset", IsSupported = features.SupportFanOffset, RawKey = "SupportFanOffset" });
             list.Add(new CapabilityItem { Name = "Dust Cleaning", IsSupported = features.SupportAntiDust_Fan, RawKey = "SupportAntiDust_Fan" });
             list.Add(new CapabilityItem { Name = "Fanless Mode", IsSupported = features.SupportFanLess, RawKey = "SupportFanLess" });
-            list.Add(new CapabilityItem { Name = "Max-Q Mode", IsSupported = Fan.IsMaxQSupported(), RawKey = "SupportMaxQ" });
+            list.Add(new CapabilityItem { Name = "Max-Q Mode", IsSupported = IsMaxQSupported(), RawKey = "SupportMaxQ" });
 
-            // Platform and System
             list.Add(new CapabilityItem { Name = "Wake on LAN", IsSupported = features.WakeUpLanSupport, RawKey = "WakeUpLanSupport" });
             list.Add(new CapabilityItem { Name = "XMP Profiles", IsSupported = features.SupportXMP, RawKey = "SupportXMP" });
             list.Add(new CapabilityItem { Name = "Hybrid Graphics Switch", IsSupported = features.SupportMSHybrid_dGPUSwicth, RawKey = "SupportMSHybrid_dGPUSwicth" });
@@ -356,7 +328,7 @@ namespace BSCustomClevoController.Utility
                 features.SupportUsbHubReset = (WMI_Data & 256) == 256;
                 if ((WMI_Data & 512) == 512)
                     features.SupportBootChangeCPUVoltage = true;
-                features.SupportTpColor = (WMI_Data & 2048) == 2048;
+                features.SupportTpColor |= (WMI_Data & 2048) == 2048;
                 features.SupportLightbar = (WMI_Data & 4096) == 4096;
                 features.SupportFanLess = (WMI_Data & 32768) == 32768;
                 if ((WMI_Data & 65536) == 65536)
@@ -374,13 +346,10 @@ namespace BSCustomClevoController.Utility
                 if ((WMI_Data & 4194304) == 4194304)
                     features.SupportEss = true;
                 features.SupportXMP = (WMI_Data & 16777216) == 16777216;
-                features.SupportGPUOC_WMI = (WMI_Data >> 26 & 1) != 1 ? 0 : 1;
-                features.SupportGPUcustom_WMI = (WMI_Data >> 27 & 1) != 1 ? 0 : 1;
-                features.SupportKBLEDsleep_WMI = (WMI_Data >> 28 & 1) != 1 ? 0 : 1;
-                if ((WMI_Data & 1073741824) == 1073741824)
-                    features.SupportHW_P_state = true;
-                else
-                    features.SupportHW_P_state = false;
+                features.SupportGPUOC_WMI = (WMI_Data >> 26 & 1) == 1 ? 1 : 0;
+                features.SupportGPUcustom_WMI = (WMI_Data >> 27 & 1) == 1 ? 1 : 0;
+                features.SupportKBLEDsleep_WMI = (WMI_Data >> 28 & 1) == 1 ? 1 : 0;
+                features.SupportHW_P_state = (WMI_Data & 1073741824) == 1073741824;
             }
             else
             {
@@ -391,10 +360,7 @@ namespace BSCustomClevoController.Utility
                     features.SupportAllModeGPUOC = true;
                 features.SupportAntiDust_Fan = (WMI_Data >> 7 & 1) == 1;
                 features.SupportDisablePCIE_ASPM = (WMI_Data >> 9 & 1) == 1;
-                if ((WMI_Data >> 10 & 1) == 1)
-                    features.SupportFanOffset = false;
-                else
-                    features.SupportFanOffset = true;
+                features.SupportFanOffset = (WMI_Data >> 10 & 1) == 0;
             }
         }
     }
